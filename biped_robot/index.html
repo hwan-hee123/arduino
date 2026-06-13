@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2족보행 로봇 시뮬레이터</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#070b18; color:#c8d8f0;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  min-height:100vh; user-select:none;
+}
+.header {
+  background:#0d1428; border-bottom:1px solid #1e2d50;
+  padding:12px 24px; display:flex; align-items:center; gap:12px;
+}
+.header h1 { font-size:1.1rem; font-weight:500; color:#7ab0e8; }
+.dot { width:8px; height:8px; border-radius:50%; background:#22c55e; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+.badge {
+  margin-left:auto; font-size:.75rem; color:#4a6080;
+  background:#0d1428; border:1px solid #1e2d50; border-radius:6px; padding:3px 10px;
+}
+.main { display:grid; grid-template-columns:520px 1fr; gap:16px; padding:16px; max-width:1280px; margin:0 auto; }
+.panel {
+  background:#0d1428; border:1px solid #1e2d50;
+  border-radius:10px; padding:16px;
+}
+.ptitle {
+  font-size:.7rem; color:#4a6080; letter-spacing:.1em;
+  text-transform:uppercase; margin-bottom:12px;
+}
+
+/* Canvas */
+canvas {
+  display:block; margin:0 auto;
+  border:1px solid #1e2d50; border-radius:8px;
+  background:#040810;
+}
+
+/* D-pad */
+.dpad {
+  display:grid;
+  grid-template-areas:'. f .' 'l s r' '. b .';
+  gap:8px; width:fit-content; margin:16px auto 0;
+}
+.btn {
+  width:58px; height:58px;
+  background:#111a30; border:1px solid #2a3d60;
+  border-radius:8px; color:#7090b8; font-size:1.1rem;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .1s,color .1s,border-color .1s;
+}
+.btn:hover { background:#1a2848; color:#d0e8ff; border-color:#3a5080; }
+.btn.active { background:#1848a0; color:#fff; border-color:#4090ff; }
+.btn-stp { background:#150f20; border-color:#3a2050; color:#806090; }
+.btn-stp.active { background:#8b1a1a; border-color:#ff4444; color:#fff; }
+[data-cmd=F] { grid-area:f; }
+[data-cmd=B] { grid-area:b; }
+[data-cmd=L] { grid-area:l; }
+[data-cmd=R] { grid-area:r; }
+[data-cmd=S] { grid-area:s; }
+
+/* Status bar */
+.statbar {
+  display:flex; gap:20px; margin-top:12px;
+  background:#06090f; border:1px solid #141d30;
+  border-radius:6px; padding:8px 12px;
+  font-size:.78rem; color:#4a6080;
+}
+.statbar em { color:#4a9de8; font-style:normal; font-weight:500; }
+
+/* Servo panel */
+.servo-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sitem {
+  background:#060912; border:1px solid #141d30;
+  border-radius:8px; padding:10px 12px;
+}
+.slabel { font-size:.7rem; color:#3a5070; margin-bottom:4px; }
+.sval { font-size:1.3rem; font-weight:500; color:#4a9de8; font-family:monospace; }
+.sbar-bg { background:#08101e; height:5px; border-radius:3px; margin-top:8px; overflow:hidden; }
+.sbar { height:100%; border-radius:3px; background:#1a5a9e; transition:width .12s; }
+
+/* Code panel */
+.tabs { display:flex; gap:6px; margin-bottom:12px; }
+.tab {
+  padding:5px 14px; border-radius:6px; font-size:.75rem;
+  cursor:pointer; border:1px solid #1e2d50; color:#4a6080; background:transparent;
+  transition:all .15s;
+}
+.tab.on { background:#142048; color:#5aa0e8; border-color:#2a4880; }
+pre {
+  background:#040810; border:1px solid #141d30; border-radius:8px;
+  padding:14px; font-size:.72rem; overflow-y:auto; max-height:400px;
+  color:#7a9ab8; line-height:1.65; font-family:'Cascadia Code','Consolas',monospace;
+}
+.kw { color:#5baaf0; }
+.cm { color:#3a5060; font-style:italic; }
+.nu { color:#e8a84a; }
+.fn { color:#80d0e8; }
+.st { color:#68c090; }
+.pp { color:#c080e8; }
+
+@media(max-width:900px) {
+  .main { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="dot"></div>
+  <h1>2족보행 휴머노이드 로봇 시뮬레이터</h1>
+  <div class="badge">Arduino Biped v1.0</div>
+</div>
+
+<div class="main">
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Robot canvas -->
+    <div class="panel">
+      <div class="ptitle">로봇 뷰 (측면 시점)</div>
+      <canvas id="cv" width="488" height="310"></canvas>
+
+      <div class="dpad">
+        <button class="btn" data-cmd="F" title="전진 [W / ↑]">▲</button>
+        <button class="btn" data-cmd="L" title="좌회전 [A / ←]">◀</button>
+        <button class="btn btn-stp active" data-cmd="S" title="정지 [Space]">■</button>
+        <button class="btn" data-cmd="R" title="우회전 [D / →]">▶</button>
+        <button class="btn" data-cmd="B" title="후진 [S / ↓]">▼</button>
+      </div>
+
+      <div class="statbar">
+        <span>명령: <em id="stCmd">정지</em></span>
+        <span>속도: <em id="stSpd">0</em> step/s</span>
+        <span>걸음: <em id="stStep">0</em></span>
+        <span style="margin-left:auto;font-size:.7rem">키보드: WASD / 방향키 / Space</span>
+      </div>
+    </div>
+
+    <!-- Servo angles -->
+    <div class="panel">
+      <div class="ptitle">서보 각도 (실시간)</div>
+      <div class="servo-grid" id="sGrid"></div>
+    </div>
+  </div>
+
+  <!-- Code panel -->
+  <div class="panel">
+    <div class="ptitle">아두이노 코드</div>
+    <div class="tabs">
+      <button class="tab on" onclick="showTab(0,this)">biped_robot.ino</button>
+      <button class="tab"    onclick="showTab(1,this)">gait_patterns.h</button>
+      <button class="tab"    onclick="showTab(2,this)">kinematics.h</button>
+    </div>
+    <div id="codeViews"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  GAIT DATA  (mirrors gait_patterns.h)
+// ═══════════════════════════════════════════════════════
+const GAITS = {
+  S: [[90,90,90,90,90,90]],
+  F: [
+    [90,90,90,90,90,90],
+    [90,90,95,90,80,85],
+    [70,60,110,90,80,85],
+    [70,90,90,90,90,90],
+    [70,80,90,90,90,95],
+    [70,80,90,110,60,70],
+    [90,90,90,110,90,90],
+  ],
+  B: [
+    [90,90,90,90,90,90],
+    [90,90,85,90,80,95],
+    [110,60,70,90,80,95],
+    [110,90,90,90,90,90],
+    [110,80,90,90,90,85],
+    [110,80,90,70,60,110],
+    [90,90,90,70,90,90],
+  ],
+  L: [
+    [90,90,90,90,90,90],
+    [75,65,90,90,90,90],
+    [75,90,90,90,90,90],
+    [90,90,90,90,90,90],
+  ],
+  R: [
+    [90,90,90,90,90,90],
+    [90,90,90,105,65,90],
+    [90,90,90,105,90,90],
+    [90,90,90,90,90,90],
+  ]
+};
+const LABELS = { F:'전진', B:'후진', L:'좌회전', R:'우회전', S:'정지' };
+const SPEEDS  = { F:2.0, B:2.0, L:1.5, R:1.5, S:0 };
+const SNAMES  = ['LH 왼쪽 허리','LK 왼쪽 무릎','LA 왼쪽 발목','RH 오른쪽 허리','RK 오른쪽 무릎','RA 오른쪽 발목'];
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let cmd='S', fi=0, ft=0, steps=0, gOff=0, last=0;
+let cur=[90,90,90,90,90,90];
+const FPS = 0.0028; // t increment per ms
+
+// ═══════════════════════════════════════════════════════
+//  SERVO UI
+// ═══════════════════════════════════════════════════════
+const sg = document.getElementById('sGrid');
+SNAMES.forEach((_,i)=>{
+  sg.innerHTML += `<div class="sitem">
+    <div class="slabel">${SNAMES[i]}</div>
+    <div class="sval" id="sv${i}">90°</div>
+    <div class="sbar-bg"><div class="sbar" id="sb${i}" style="width:50%"></div></div>
+  </div>`;
+});
+function updateServos(a){
+  a.forEach((v,i)=>{
+    const r=Math.round(v);
+    document.getElementById(`sv${i}`).textContent=r+'°';
+    document.getElementById(`sb${i}`).style.width=(r/180*100)+'%';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════
+function setCmd(c){
+  cmd=c; fi=0; ft=0;
+  document.querySelectorAll('.btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.cmd===c);
+  });
+  document.getElementById('stCmd').textContent=LABELS[c];
+  document.getElementById('stSpd').textContent=SPEEDS[c];
+}
+document.querySelectorAll('.btn').forEach(b=>{
+  b.addEventListener('click',()=>setCmd(b.dataset.cmd));
+});
+document.addEventListener('keydown',e=>{
+  const m={w:'F',s:'B',a:'L',d:'R',' ':'S',
+           ArrowUp:'F',ArrowDown:'B',ArrowLeft:'L',ArrowRight:'R'};
+  if(m[e.key]){e.preventDefault();setCmd(m[e.key]);}
+});
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS DRAWING
+// ═══════════════════════════════════════════════════════
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+
+// Robot geometry constants
+const CX=244, HIPY=168;
+const THIGH=62, SHIN=62, FFOOT=28, BFOOT=8;
+const GROUND=282;
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function lerpArr(a,b,t){return a.map((v,i)=>lerp(v,b[i],t));}
+
+function drawGrid(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle='#090e1c'; ctx.lineWidth=1;
+  for(let x=(gOff%32+32)%32;x<cv.width;x+=32){
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cv.height);ctx.stroke();
+  }
+  for(let y=16;y<cv.height;y+=32){
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cv.width,y);ctx.stroke();
+  }
+}
+
+function drawGround(){
+  ctx.fillStyle='#06090f';
+  ctx.fillRect(0,GROUND,cv.width,cv.height-GROUND);
+  ctx.strokeStyle='#1a2848'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,GROUND);ctx.lineTo(cv.width,GROUND);ctx.stroke();
+  // dashes on ground
+  ctx.strokeStyle='#0f1830'; ctx.lineWidth=2;
+  for(let x=((gOff*0.5)%48+48)%48;x<cv.width;x+=48){
+    ctx.beginPath();ctx.moveTo(x,GROUND+8);ctx.lineTo(x+22,GROUND+8);ctx.stroke();
+  }
+}
+
+function getLeg(hipX,hipY,hs,ks,isLeft){
+  const swingDeg = isLeft?(90-hs):(hs-90);
+  const hRad = swingDeg*Math.PI/180;
+  const kBend = Math.max(0,90-ks)*Math.PI/180;
+  const kx=hipX+THIGH*Math.sin(hRad);
+  const ky=hipY+THIGH*Math.cos(hRad);
+  const sRad=hRad+kBend;
+  const ax=kx+SHIN*Math.sin(sRad);
+  const ay=ky+SHIN*Math.cos(sRad);
+  const fx=Math.cos(sRad); const fy=-Math.sin(sRad);
+  return {kx,ky,ax,ay,fx,fy,hRad,sRad};
+}
+
+function drawLeg(hipX,hipY,hs,ks,as_,isLeft,alpha){
+  const {kx,ky,ax,ay,fx,fy}=getLeg(hipX,hipY,hs,ks,isLeft);
+  const aC=(isLeft)?`rgba(40,160,240,${alpha})`:`rgba(240,130,40,${alpha})`;
+  const aD=(isLeft)?`rgba(20,70,120,${alpha})`:`rgba(100,50,15,${alpha})`;
+
+  const ankAdj=(as_-90)*Math.PI/180;
+  const fxA=Math.cos(Math.atan2(fy,fx)+ankAdj);
+  const fyA=Math.sin(Math.atan2(fy,fx)+ankAdj);
+
+  ctx.lineCap='round'; ctx.lineJoin='round';
+
+  // thigh
+  ctx.strokeStyle=aC; ctx.lineWidth=8;
+  ctx.beginPath(); ctx.moveTo(hipX,hipY); ctx.lineTo(kx,ky); ctx.stroke();
+  // shin
+  ctx.lineWidth=7;
+  ctx.beginPath(); ctx.moveTo(kx,ky); ctx.lineTo(ax,ay); ctx.stroke();
+  // foot
+  ctx.lineWidth=6;
+  ctx.beginPath();
+  ctx.moveTo(ax-BFOOT*fxA, ay-BFOOT*fyA);
+  ctx.lineTo(ax+FFOOT*fxA, ay+FFOOT*fyA);
+  ctx.stroke();
+  // joints
+  [[hipX,hipY,7],[kx,ky,6],[ax,ay,5]].forEach(([x,y,r])=>{
+    ctx.fillStyle=aC; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=aD; ctx.beginPath(); ctx.arc(x,y,r-2,0,Math.PI*2); ctx.fill();
+  });
+}
+
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
+function drawBody(){
+  // torso
+  ctx.fillStyle='#101e40';
+  rr(CX-36,HIPY-88,72,88,7); ctx.fill();
+  ctx.strokeStyle='#1e3a70'; ctx.lineWidth=1.5;
+  rr(CX-36,HIPY-88,72,88,7); ctx.stroke();
+
+  // chest detail
+  ctx.fillStyle='#0a1428';
+  rr(CX-22,HIPY-76,44,18,4); ctx.fill();
+  ctx.fillStyle='#1a4080';
+  rr(CX-22,HIPY-76,28,18,4); ctx.fill();
+
+  // center panel
+  ctx.fillStyle='#0d1830';
+  ctx.beginPath(); ctx.arc(CX,HIPY-34,14,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#2a5090'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(CX,HIPY-34,14,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#1a3868';
+  ctx.beginPath(); ctx.arc(CX,HIPY-34,8,0,Math.PI*2); ctx.fill();
+
+  // shoulders
+  ctx.fillStyle='#0e1c3a';
+  rr(CX-54,HIPY-84,18,36,4); ctx.fill();
+  rr(CX+36,HIPY-84,18,36,4); ctx.fill();
+  ctx.strokeStyle='#1e3460'; ctx.lineWidth=1;
+  rr(CX-54,HIPY-84,18,36,4); ctx.stroke();
+  rr(CX+36,HIPY-84,18,36,4); ctx.stroke();
+
+  // arms
+  ctx.strokeStyle='#1e3060'; ctx.lineWidth=9;
+  ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(CX-45,HIPY-66);ctx.lineTo(CX-45,HIPY-20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(CX+45,HIPY-66);ctx.lineTo(CX+45,HIPY-20);ctx.stroke();
+  ctx.strokeStyle='#253870'; ctx.lineWidth=7;
+  ctx.beginPath();ctx.moveTo(CX-45,HIPY-66);ctx.lineTo(CX-45,HIPY-20);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(CX+45,HIPY-66);ctx.lineTo(CX+45,HIPY-20);ctx.stroke();
+
+  // neck
+  ctx.fillStyle='#0a1428';
+  ctx.fillRect(CX-10,HIPY-96,20,10);
+
+  // head
+  ctx.fillStyle='#0e1c3a';
+  rr(CX-26,HIPY-136,52,42,6); ctx.fill();
+  ctx.strokeStyle='#1e3a70'; ctx.lineWidth=1.5;
+  rr(CX-26,HIPY-136,52,42,6); ctx.stroke();
+
+  // eyes
+  ctx.fillStyle='#1a80d0';
+  ctx.beginPath(); ctx.arc(CX-11,HIPY-118,6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(CX+11,HIPY-118,6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#50c8ff';
+  ctx.beginPath(); ctx.arc(CX-11,HIPY-118,3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(CX+11,HIPY-118,3,0,Math.PI*2); ctx.fill();
+
+  // mouth line
+  ctx.strokeStyle='#2060a0'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(CX-12,HIPY-105);ctx.lineTo(CX+12,HIPY-105);ctx.stroke();
+}
+
+function drawRobot(a){
+  drawGrid();
+  drawGround();
+
+  const [LH,LK,LA,RH,RK,RA]=a;
+
+  // back leg (right, dimmed)
+  ctx.globalAlpha=0.55;
+  drawLeg(CX+4,HIPY,RH,RK,RA,false,0.55);
+  ctx.globalAlpha=1;
+
+  drawBody();
+
+  // front leg (left)
+  drawLeg(CX-4,HIPY,LH,LK,LA,true,1.0);
+
+  // direction indicator
+  if(cmd!=='S'){
+    const arrow={'F':'→','B':'←','L':'↺','R':'↻'}[cmd];
+    ctx.fillStyle='rgba(50,120,200,0.7)';
+    ctx.font='14px system-ui'; ctx.textAlign='left';
+    ctx.fillText(arrow+' '+LABELS[cmd], 10, 22);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANIMATION LOOP
+// ═══════════════════════════════════════════════════════
+function tick(ts){
+  const dt=Math.min(ts-last,50); last=ts;
+  const g=GAITS[cmd];
+
+  if(cmd!=='S'){
+    ft+=dt*FPS;
+    if(ft>=1){
+      ft-=1; fi=(fi+1)%g.length;
+      if(fi===0) steps++;
+      document.getElementById('stStep').textContent=steps;
+    }
+    if(cmd==='F') gOff-=dt*0.12;
+    else if(cmd==='B') gOff+=dt*0.12;
+    else if(cmd==='L') gOff-=dt*0.06;
+    else if(cmd==='R') gOff+=dt*0.06;
+  }
+
+  const ni=(fi+1)%g.length;
+  cur=lerpArr(g[fi],g[ni],ft);
+  drawRobot(cur);
+  updateServos(cur);
+  requestAnimationFrame(tick);
+}
+setCmd('S');
+requestAnimationFrame(tick);
+
+// ═══════════════════════════════════════════════════════
+//  CODE DISPLAY
+// ═══════════════════════════════════════════════════════
+const CODES=[
+`<span class="cm">// biped_robot.ino — 2족보행 휴머노이드 제어</span>
+<span class="cm">// 서보 6개: 왼쪽(허리/무릎/발목) + 오른쪽(허리/무릎/발목)</span>
+<span class="cm">// 시리얼 명령: F=전진  B=후진  L=좌회전  R=우회전  S=정지</span>
+
+<span class="pp">#include</span> &lt;Servo.h&gt;
+<span class="pp">#include</span> <span class="st">"gait_patterns.h"</span>
+
+<span class="pp">#define</span> PIN_LH  <span class="nu">2</span>
+<span class="pp">#define</span> PIN_LK  <span class="nu">3</span>
+<span class="pp">#define</span> PIN_LA  <span class="nu">4</span>
+<span class="pp">#define</span> PIN_RH  <span class="nu">5</span>
+<span class="pp">#define</span> PIN_RK  <span class="nu">6</span>
+<span class="pp">#define</span> PIN_RA  <span class="nu">7</span>
+<span class="pp">#define</span> STEP_DELAY_MS  <span class="nu">180</span>
+
+Servo servos[<span class="nu">6</span>];
+<span class="kw">const int</span> PINS[<span class="nu">6</span>] = {PIN_LH,PIN_LK,PIN_LA,PIN_RH,PIN_RK,PIN_RA};
+<span class="kw">char</span> command = <span class="st">'S'</span>;
+<span class="kw">int</span>  gaitFrame = <span class="nu">0</span>;
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+  Serial.<span class="fn">begin</span>(<span class="nu">9600</span>);
+  <span class="kw">for</span> (<span class="kw">int</span> i=<span class="nu">0</span>; i&lt;<span class="nu">6</span>; i++) servos[i].<span class="fn">attach</span>(PINS[i]);
+  <span class="fn">setServos</span>(NEUTRAL);
+  <span class="fn">delay</span>(<span class="nu">1000</span>);
+  Serial.<span class="fn">println</span>(<span class="st">"Biped Ready. Send F/B/L/R/S"</span>);
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="kw">if</span> (Serial.<span class="fn">available</span>()) {
+    <span class="kw">char</span> c = Serial.<span class="fn">read</span>();
+    <span class="kw">if</span> (c=='F'||c=='B'||c=='L'||c=='R'||c=='S') {
+      <span class="kw">if</span> (c != command) { command=c; gaitFrame=<span class="nu">0</span>; }
+    }
+  }
+  <span class="kw">switch</span>(command){
+    <span class="kw">case</span> <span class="st">'F'</span>: <span class="fn">runGait</span>(GAIT_FORWARD,  GAIT_FWD_FRAMES); <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="st">'B'</span>: <span class="fn">runGait</span>(GAIT_BACKWARD, GAIT_BWD_FRAMES); <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="st">'L'</span>: <span class="fn">runGait</span>(GAIT_LEFT,     GAIT_LFT_FRAMES); <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="st">'R'</span>: <span class="fn">runGait</span>(GAIT_RIGHT,    GAIT_RGT_FRAMES); <span class="kw">break</span>;
+    <span class="kw">default</span>: <span class="fn">setServos</span>(NEUTRAL); <span class="kw">break</span>;
+  }
+}
+
+<span class="kw">void</span> <span class="fn">runGait</span>(<span class="kw">const int</span> gait[][<span class="nu">6</span>], <span class="kw">int</span> frames){
+  <span class="fn">setServos</span>(gait[gaitFrame]);
+  <span class="fn">delay</span>(STEP_DELAY_MS);
+  gaitFrame = (gaitFrame+<span class="nu">1</span>) % frames;
+  <span class="kw">if</span>(Serial.<span class="fn">available</span>()){ command=Serial.<span class="fn">read</span>(); gaitFrame=<span class="nu">0</span>; }
+}
+
+<span class="kw">void</span> <span class="fn">setServos</span>(<span class="kw">const int</span> a[<span class="nu">6</span>]){
+  <span class="kw">for</span>(<span class="kw">int</span> i=<span class="nu">0</span>;i&lt;<span class="nu">6</span>;i++) servos[i].<span class="fn">write</span>(<span class="fn">constrain</span>(a[i],<span class="nu">0</span>,<span class="nu">180</span>));
+}`,
+
+`<span class="cm">// gait_patterns.h — 보행 패턴 정의</span>
+<span class="cm">// {LH, LK, LA, RH, RK, RA}  (90°=중립)</span>
+<span class="cm">// LH 왼쪽 허리: 90=중립  70=앞  110=뒤</span>
+<span class="cm">// RH 오른쪽 허리: 90=중립  110=앞  70=뒤 (마운팅 반대)</span>
+<span class="cm">// 무릎: 90=펼침  60=구부림</span>
+
+<span class="pp">#pragma once</span>
+
+<span class="kw">const int</span> NEUTRAL[<span class="nu">6</span>] = {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>};
+
+<span class="cm">// ── 전진 (7 프레임) ─────────────────────────────────</span>
+<span class="pp">#define</span> GAIT_FWD_FRAMES <span class="nu">7</span>
+<span class="kw">const int</span> GAIT_FORWARD[GAIT_FWD_FRAMES][<span class="nu">6</span>] = {
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>},  <span class="cm">// 0: 기본 자세</span>
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 95</span>,<span class="nu"> 90</span>,<span class="nu">80</span>,<span class="nu"> 85</span>},  <span class="cm">// 1: 오른쪽 무게 이동</span>
+  {<span class="nu">70</span>,<span class="nu">60</span>,<span class="nu">110</span>,<span class="nu"> 90</span>,<span class="nu">80</span>,<span class="nu"> 85</span>},  <span class="cm">// 2: 왼발 들어 앞으로</span>
+  {<span class="nu">70</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>},  <span class="cm">// 3: 왼발 착지</span>
+  {<span class="nu">70</span>,<span class="nu">80</span>,<span class="nu"> 90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu"> 95</span>},  <span class="cm">// 4: 왼쪽 무게 이동</span>
+  {<span class="nu">70</span>,<span class="nu">80</span>,<span class="nu"> 90</span>,<span class="nu">110</span>,<span class="nu">60</span>,<span class="nu"> 70</span>},  <span class="cm">// 5: 오른발 들어 앞으로</span>
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">110</span>,<span class="nu">90</span>,<span class="nu"> 90</span>},  <span class="cm">// 6: 오른발 착지</span>
+};
+
+<span class="cm">// ── 후진 (7 프레임) ─────────────────────────────────</span>
+<span class="pp">#define</span> GAIT_BWD_FRAMES <span class="nu">7</span>
+<span class="kw">const int</span> GAIT_BACKWARD[GAIT_BWD_FRAMES][<span class="nu">6</span>] = {
+  { <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">90</span>, <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">90</span>},
+  { <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">85</span>, <span class="nu">90</span>,<span class="nu">80</span>, <span class="nu">95</span>},
+  {<span class="nu">110</span>,<span class="nu">60</span>, <span class="nu">70</span>, <span class="nu">90</span>,<span class="nu">80</span>, <span class="nu">95</span>},
+  {<span class="nu">110</span>,<span class="nu">90</span>, <span class="nu">90</span>, <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">90</span>},
+  {<span class="nu">110</span>,<span class="nu">80</span>, <span class="nu">90</span>, <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">85</span>},
+  {<span class="nu">110</span>,<span class="nu">80</span>, <span class="nu">90</span>, <span class="nu">70</span>,<span class="nu">60</span>,<span class="nu">110</span>},
+  { <span class="nu">90</span>,<span class="nu">90</span>, <span class="nu">90</span>, <span class="nu">70</span>,<span class="nu">90</span>, <span class="nu">90</span>},
+};
+
+<span class="cm">// ── 좌회전 (4 프레임) ───────────────────────────────</span>
+<span class="pp">#define</span> GAIT_LFT_FRAMES <span class="nu">4</span>
+<span class="kw">const int</span> GAIT_LEFT[GAIT_LFT_FRAMES][<span class="nu">6</span>] = {
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+  {<span class="nu">75</span>,<span class="nu">65</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+  {<span class="nu">75</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+};
+
+<span class="cm">// ── 우회전 (4 프레임) ───────────────────────────────</span>
+<span class="pp">#define</span> GAIT_RGT_FRAMES <span class="nu">4</span>
+<span class="kw">const int</span> GAIT_RIGHT[GAIT_RGT_FRAMES][<span class="nu">6</span>] = {
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">105</span>,<span class="nu">65</span>,<span class="nu">90</span>},
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">105</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+  {<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu">90</span>,<span class="nu"> 90</span>,<span class="nu">90</span>,<span class="nu">90</span>},
+};`,
+
+`<span class="cm">// kinematics.h — 역기구학(IK) 솔버</span>
+<span class="cm">// 발 끝 목표 위치(x,y) → 허리/무릎 서보 각도 자동 계산</span>
+<span class="cm">// 향후 동적 보행, 장애물 회피 구현에 활용</span>
+
+<span class="pp">#pragma once</span>
+<span class="pp">#include</span> &lt;math.h&gt;
+
+<span class="kw">const float</span> THIGH_LEN = <span class="nu">7.0f</span>;  <span class="cm">// cm (실제 로봇에 맞게 수정)</span>
+<span class="kw">const float</span> SHIN_LEN  = <span class="nu">7.0f</span>;  <span class="cm">// cm</span>
+
+<span class="kw">struct</span> IKResult {
+  <span class="kw">float</span> hipAngle;
+  <span class="kw">float</span> kneeAngle;
+  <span class="kw">bool</span>  valid;
+};
+
+<span class="cm">// 발 끝 좌표 (x=앞뒤, y=위아래 cm) → 관절 각도 반환</span>
+<span class="cm">// 예: solveIK(0, -14)  → 수직으로 14cm 아래</span>
+<span class="cm">//     solveIK(3, -12)  → 앞으로 3cm, 아래로 12cm</span>
+IKResult <span class="fn">solveIK</span>(<span class="kw">float</span> x, <span class="kw">float</span> y){
+  IKResult r = {<span class="nu">90.f</span>, <span class="nu">90.f</span>, <span class="kw">false</span>};
+
+  <span class="kw">float</span> dist = <span class="fn">sqrtf</span>(x*x + y*y);
+  <span class="kw">if</span>(dist > THIGH_LEN+SHIN_LEN) <span class="kw">return</span> r;
+  <span class="kw">if</span>(dist &lt; <span class="fn">fabsf</span>(THIGH_LEN-SHIN_LEN)) <span class="kw">return</span> r;
+
+  <span class="cm">// 코사인 법칙 → 무릎 관절각</span>
+  <span class="kw">float</span> cosK = (THIGH_LEN*THIGH_LEN + SHIN_LEN*SHIN_LEN - dist*dist)
+               / (<span class="nu">2.f</span>*THIGH_LEN*SHIN_LEN);
+  cosK = <span class="fn">constrain</span>(cosK, -<span class="nu">1.f</span>, <span class="nu">1.f</span>);
+  <span class="kw">float</span> kneeJoint = <span class="fn">acosf</span>(cosK) * <span class="nu">180.f</span> / M_PI;
+
+  <span class="cm">// 허리 각도 계산</span>
+  <span class="kw">float</span> alpha  = <span class="fn">atan2f</span>(x, -y);
+  <span class="kw">float</span> cosB   = (THIGH_LEN*THIGH_LEN + dist*dist - SHIN_LEN*SHIN_LEN)
+                 / (<span class="nu">2.f</span>*THIGH_LEN*dist);
+  cosB = <span class="fn">constrain</span>(cosB, -<span class="nu">1.f</span>, <span class="nu">1.f</span>);
+  <span class="kw">float</span> beta   = <span class="fn">acosf</span>(cosB);
+  <span class="kw">float</span> hipJoint = (alpha - beta) * <span class="nu">180.f</span> / M_PI;
+
+  <span class="cm">// 서보 각도로 변환 (90 = 중립)</span>
+  r.hipAngle  = <span class="nu">90.f</span> + hipJoint;
+  r.kneeAngle = <span class="nu">180.f</span> - kneeJoint;
+  r.valid     = <span class="kw">true</span>;
+  <span class="kw">return</span> r;
+}
+
+<span class="cm">// 사용 예시:</span>
+<span class="cm">// IKResult ik = solveIK(2.0, -13.0);</span>
+<span class="cm">// if (ik.valid) {</span>
+<span class="cm">//   servos[0].write((int)ik.hipAngle);</span>
+<span class="cm">//   servos[1].write((int)ik.kneeAngle);</span>
+<span class="cm">// }</span>`
+];
+
+const cv2=document.getElementById('codeViews');
+CODES.forEach((c,i)=>{
+  const d=document.createElement('div');
+  d.id='cv'+i; d.style.display=i?'none':'block';
+  d.innerHTML=`<pre>${c}</pre>`;
+  cv2.appendChild(d);
+});
+
+function showTab(i,el){
+  CODES.forEach((_,j)=>document.getElementById('cv'+j).style.display=j===i?'block':'none');
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('on',j===i));
+}
+</script>
+</body>
+</html>
