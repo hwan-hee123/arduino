@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumei — Light Your Own Way</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-black: #111;
+      --color-gray: #777;
+      --color-border: rgba(0,0,0,0.08);
+      --color-focus: #EEF4FF;
+      --color-relax: #FFFEE7;
+      --color-night: #FFB780;
+      --max-w: 1280px;
+      --px: 64px;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--color-black);
+      background: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.95);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 var(--px);
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      color: var(--color-black);
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 36px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--color-gray);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a.active, .nav-links a:hover { color: var(--color-black); }
+    .nav-icon { font-size: 18px; cursor: pointer; opacity: 0.6; }
+
+    /* ── SECTIONS ── */
+    .container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 var(--px);
+    }
+    section { border-top: 1px solid var(--color-border); }
+    section:first-of-type { border-top: none; }
+
+    .label {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 3.5px;
+      text-transform: uppercase;
+      color: var(--color-gray);
+      margin-bottom: 40px;
+    }
+
+    /* ── BRAND STORY ── */
+    .section-story {
+      padding: 96px var(--px) 80px;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .story-body {
+      max-width: 672px;
+      margin: 0 auto;
+      text-align: center;
+      padding: 64px 0;
+    }
+    .story-body p.main {
+      font-size: 17.6px;
+      font-weight: 400;
+      line-height: 1.9;
+      letter-spacing: -0.64px;
+      color: var(--color-black);
+      margin-bottom: 16px;
+    }
+    .story-body p.sub {
+      font-size: 17.6px;
+      font-weight: 300;
+      line-height: 1.9;
+      letter-spacing: -0.64px;
+      color: var(--color-gray);
+    }
+
+    /* ── BRAND CONCEPT ── */
+    .section-concept {
+      padding: 80px var(--px);
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .concept-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: 104px;
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -2.61px;
+      color: var(--color-black);
+      margin-bottom: 32px;
+    }
+    .concept-desc {
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.625;
+      letter-spacing: -0.64px;
+      color: var(--color-gray);
+      max-width: 576px;
+      margin-bottom: 80px;
+    }
+    .concept-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+    .concept-card { padding-right: 64px; }
+    .concept-card .num {
+      font-size: 16.8px;
+      font-weight: 300;
+      color: rgba(119,119,119,0.4);
+      letter-spacing: -0.64px;
+      margin-bottom: 12px;
+    }
+    .concept-card .en-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 27.2px;
+      font-weight: 700;
+      letter-spacing: -0.64px;
+      color: var(--color-black);
+      margin-bottom: 4px;
+    }
+    .concept-card .ko-title {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--color-gray);
+      letter-spacing: -0.64px;
+      margin-bottom: 20px;
+    }
+    .concept-card .desc {
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1.625;
+      letter-spacing: -0.64px;
+      color: var(--color-gray);
+    }
+
+    /* ── NAMING / LOGO ── */
+    .section-naming {
+      padding: 80px var(--px);
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .naming-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+      margin-top: 40px;
+    }
+    .naming-text p {
+      font-size: 15px;
+      line-height: 1.9;
+      letter-spacing: -0.64px;
+    }
+    .naming-text p:first-child { font-weight: 400; color: var(--color-black); margin-bottom: 24px; }
+    .naming-text p:last-child  { font-weight: 300; color: var(--color-gray); }
+    .naming-logo-box {
+      background: #f2f2f2;
+      border-radius: 8px;
+      padding: 64px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 257px;
+    }
+    .naming-logo-box span {
+      font-family: 'Playfair Display', serif;
+      font-size: 72px;
+      font-style: italic;
+      color: var(--color-black);
+      letter-spacing: -2px;
+    }
+
+    /* ── COLOR SYSTEM ── */
+    .section-color {
+      padding: 80px var(--px);
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .color-intro-title {
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.625;
+      color: var(--color-black);
+      margin-bottom: 12px;
+    }
+    .color-intro-desc {
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.625;
+      color: var(--color-gray);
+      max-width: 672px;
+      margin-bottom: 64px;
+    }
+    .color-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .color-card {
+      border-radius: 8px;
+      overflow: hidden;
+      height: 264px;
+      display: flex;
+      flex-direction: column;
+    }
+    .color-card-top {
+      flex: 1;
+      padding: 32px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .color-card-name {
+      font-size: 25.6px;
+      font-weight: 300;
+      letter-spacing: -0.64px;
+    }
+    .color-card-arrow { font-size: 18px; opacity: 0.5; }
+    .color-card-bottom {
+      padding: 0 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .color-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.64px;
+    }
+    .color-row .lbl { opacity: 0.5; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--color-border);
+      padding-top: 1px;
+    }
+    .footer-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 64px var(--px);
+    }
+    .footer-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 0;
+      margin-bottom: 64px;
+    }
+    .footer-brand-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-style: italic;
+      color: var(--color-black);
+      margin-bottom: 16px;
+    }
+    .footer-brand-desc {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--color-gray);
+      line-height: 1.625;
+    }
+    .footer-col-title {
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 2.8px;
+      text-transform: uppercase;
+      color: var(--color-gray);
+      margin-bottom: 20px;
+    }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col ul a {
+      font-size: 14px;
+      font-weight: 300;
+      color: var(--color-gray);
+      text-decoration: none;
+      line-height: 1.4;
+    }
+    .footer-col ul a:hover { color: var(--color-black); }
+    .newsletter-desc {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--color-gray);
+      line-height: 1.625;
+      margin-bottom: 20px;
+    }
+    .email-row {
+      display: flex;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 8px;
+    }
+    .email-row input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 12px;
+      color: var(--color-gray);
+      font-family: inherit;
+      background: transparent;
+    }
+    .email-row input::placeholder { color: rgba(119,119,119,0.4); }
+    .email-row button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-black);
+    }
+    .footer-bottom {
+      border-top: 1px solid var(--color-border);
+      padding-top: 29px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-copy {
+      font-size: 12px;
+      font-weight: 300;
+      color: var(--color-gray);
+    }
+    .footer-links {
+      display: flex;
+      gap: 28px;
+    }
+    .footer-links a {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--color-gray);
+      text-decoration: none;
+    }
+    .footer-links a:hover { color: var(--color-black); }
+
+    @media (max-width: 768px) {
+      :root { --px: 24px; }
+      .concept-headline { font-size: 52px; }
+      .concept-cards, .color-cards, .footer-top { grid-template-columns: 1fr; }
+      .naming-grid { grid-template-columns: 1fr; }
+      .concept-card { padding-right: 0; margin-bottom: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <a class="nav-logo" href="#">Lumei</a>
+      <ul class="nav-links">
+        <li><a href="#story" class="active">Brand Story</a></li>
+        <li><a href="#products">Products</a></li>
+        <li><a href="#designer">Designer</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+      <span class="nav-icon">☰</span>
+    </div>
+  </nav>
+
+  <!-- BRAND STORY -->
+  <section id="story">
+    <div class="section-story">
+      <p class="label">Brand Story</p>
+      <div class="story-body">
+        <p class="main">
+          하루가 끝나고 집에 돌아온 순간, 그날의 기분은 늘 다릅니다.<br>
+          집중하고 싶은 날, 조용히 쉬고 싶은 날, 따뜻하게 하루를 마무리하고 싶은 날.
+        </p>
+        <p class="sub">
+          Lumei는 그 감각을 직접 손으로 조율할 수 있어야 한다고 생각했습니다.<br>
+          빛이 닿는 방식을 디자인해, 당신이 원하는 만큼의 공간을 빛으로 채웁니다.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRAND CONCEPT -->
+  <section>
+    <div class="section-concept">
+      <p class="label">Brand Concept</p>
+      <div class="concept-headline">Light Your<br>Own Way</div>
+      <p class="concept-desc">당신이 원하는 만큼의 공간을 빛으로 채웁니다. Lumei는 조명을 켜는 것이 아니라 공간의 감각을 직접 설계하는 경험을 제공합니다.</p>
+      <div class="concept-cards">
+        <div class="concept-card">
+          <p class="num">01)</p>
+          <p class="en-title">Sense</p>
+          <p class="ko-title">(감각)</p>
+          <p class="desc">공간의 온도와 분위기를 결정하는 것은 조명의 밝기가 아닌 빛이 닿는 방식입니다. Lumei는 사용자가 그 감각을 직접 느끼고 선택할 수 있도록 설계합니다.</p>
+        </div>
+        <div class="concept-card">
+          <p class="num">02)</p>
+          <p class="en-title">Coordination</p>
+          <p class="ko-title">(조율)</p>
+          <p class="desc">Relax, Focus, Night 세 가지 모드와 각도 조절을 통해 같은 공간도 전혀 다른 분위기로 바꿀 수 있습니다. 조명이 공간을 조율하는 도구가 됩니다.</p>
+        </div>
+        <div class="concept-card">
+          <p class="num">03)</p>
+          <p class="en-title">Self-determination</p>
+          <p class="ko-title">(자율)</p>
+          <p class="desc">정해진 설정이 아니라 사용자가 스스로 빛의 온도와 방향을 결정합니다. Lumei는 그 선택의 자유를 제품 경험 전체에 녹여냅니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRAND NAMING / LOGO -->
+  <section>
+    <div class="section-naming">
+      <p class="label">Brand Naming / Logo</p>
+      <div class="naming-grid">
+        <div class="naming-text">
+          <p>Lumei(루메이)는 빛을 뜻하는 Lumen과 부드러움을 뜻하는 柔(유)를 결합한 이름으로, '부드럽게 번지는 빛'을 네이밍에 담았습니다.</p>
+          <p>로고는 흐르는 스크립트 필선으로 빛의 움직임과 브랜드의 유연한 감성을 동시에 표현합니다.</p>
+        </div>
+        <div class="naming-logo-box">
+          <span>Lumei</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRAND COLOR SYSTEM -->
+  <section>
+    <div class="section-color">
+      <p class="label">Brand Color System</p>
+      <p class="color-intro-title">Lumei의 컬러 시스템은 제품이 제공하는 세 가지 조명 모드를 색으로 직접 표현합니다.</p>
+      <p class="color-intro-desc">사용자가 경험하는 빛의 온도를 브랜드 언어로 일관되게 연결하기 위해, 실제 광원의 색온도를 그대로 시각화하는 방식으로 설계했습니다.</p>
+
+      <div class="color-cards">
+        <!-- Focus Mode -->
+        <div class="color-card" style="background: var(--color-focus);">
+          <div class="color-card-top">
+            <span class="color-card-name">Focus Mode</span>
+            <span class="color-card-arrow">↗</span>
+          </div>
+          <div class="color-card-bottom">
+            <div class="color-row"><span class="lbl">HEX.</span><span>#EEF4FF</span></div>
+            <div class="color-row"><span class="lbl">RGB.</span><span>238 244 255</span></div>
+            <div class="color-row"><span class="lbl">CMYK.</span><span>7 4 0 0</span></div>
+          </div>
+        </div>
+        <!-- Relax Mode -->
+        <div class="color-card" style="background: var(--color-relax);">
+          <div class="color-card-top">
+            <span class="color-card-name">Relax Mode</span>
+            <span class="color-card-arrow">↗</span>
+          </div>
+          <div class="color-card-bottom">
+            <div class="color-row"><span class="lbl">HEX.</span><span>#FFFEE7</span></div>
+            <div class="color-row"><span class="lbl">RGB.</span><span>255 254 231</span></div>
+            <div class="color-row"><span class="lbl">CMYK.</span><span>0 0 9 0</span></div>
+          </div>
+        </div>
+        <!-- Night Mode -->
+        <div class="color-card" style="background: var(--color-night);">
+          <div class="color-card-top">
+            <span class="color-card-name">Night Mode</span>
+            <span class="color-card-arrow">↗</span>
+          </div>
+          <div class="color-card-bottom">
+            <div class="color-row"><span class="lbl">HEX.</span><span>#FFB780</span></div>
+            <div class="color-row"><span class="lbl">RGB.</span><span>255 183 128</span></div>
+            <div class="color-row"><span class="lbl">CMYK.</span><span>0 28 50 0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer id="contact">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-col">
+          <div class="footer-brand-logo">Lumei</div>
+          <p class="footer-brand-desc">Objects designed with intention.<br>Made to last.</p>
+        </div>
+        <div class="footer-col">
+          <p class="footer-col-title">Navigate</p>
+          <ul>
+            <li><a href="#story">Brand Story</a></li>
+            <li><a href="#products">Products</a></li>
+            <li><a href="#designer">Designer</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <p class="footer-col-title">Newsletter</p>
+          <p class="newsletter-desc">Occasional notes from the studio. No frequency promises.</p>
+          <div class="email-row">
+            <input type="email" placeholder="Email address" />
+            <button type="button">→</button>
+          </div>
+        </div>
+        <div class="footer-col">
+          <p class="footer-col-title">Follow</p>
+          <ul>
+            <li><a href="#">Instagram</a></li>
+            <li><a href="#">Pinterest</a></li>
+            <li><a href="#">Are.na</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p class="footer-copy">© 2025 FORM Studio. All rights reserved.</p>
+        <div class="footer-links">
+          <a href="#">Privacy</a>
+          <a href="#">Shipping</a>
+          <a href="#">Returns</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
