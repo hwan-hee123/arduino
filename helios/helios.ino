@@ -1,115 +1,137 @@
 /*
  * ==========================================================
- *  HELIOS ☀  —  이족 보행 로봇 메인 스케치
+ *  HELIOS ☀  —  휴머노이드 로봇 메인 스케치
  * ==========================================================
- *  다리당 3서보(엉덩이/무릎/발목), 총 6서보 기준.
+ *  PCA9685 16채널 서보 드라이버 기준.
+ *  구성: 머리 + 허리 + 양팔(각3) + 양다리(각4) = 16 서보
+ *
+ *  필요 라이브러리 (라이브러리 매니저에서 설치):
+ *    - Adafruit PWM Servo Driver Library
+ *
  *  하드웨어 설정은 config.h 에서 변경하세요.
  *
  *  시리얼 명령 (9600 baud):
- *    n : 중립 자세로 서기
- *    w : 앞으로 걷기 (몇 걸음)
+ *    n : 중립(차렷) 자세
+ *    w : 앞으로 걷기
+ *    a : 손 흔들기 (인사)
  *    s : 정지
  * ==========================================================
  */
 
-#include <Servo.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 #include "config.h"
 
-// --- 서보 객체 ---
-Servo sHip[2];    // [0]=왼쪽, [1]=오른쪽
-Servo sKnee[2];
-Servo sAnkle[2];
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 
-// 인덱스 편의를 위한 상수
-#define LEFT   0
-#define RIGHT  1
-
-// 중립 각도 테이블
-const int neutralHip[2]   = { NEUTRAL_L_HIP,   NEUTRAL_R_HIP   };
-const int neutralKnee[2]  = { NEUTRAL_L_KNEE,  NEUTRAL_R_KNEE  };
-const int neutralAnkle[2] = { NEUTRAL_L_ANKLE, NEUTRAL_R_ANKLE };
-
-// 방향 테이블
-const int dirHip[2]   = { DIR_L_HIP,   DIR_R_HIP   };
-const int dirKnee[2]  = { DIR_L_KNEE,  DIR_R_KNEE  };
-const int dirAnkle[2] = { DIR_L_ANKLE, DIR_R_ANKLE };
+// 중립각/방향 테이블
+const int neutral[NUM_SERVOS]   = NEUTRAL_ANGLES;
+const int servoDir[NUM_SERVOS]  = SERVO_DIRECTIONS;
 
 bool walking = false;
 
-// ---------- 유틸 ----------
+// ---------- 저수준: 각도 → 서보 출력 ----------
 int clampAngle(int a) {
   if (a < SERVO_MIN_ANGLE) return SERVO_MIN_ANGLE;
   if (a > SERVO_MAX_ANGLE) return SERVO_MAX_ANGLE;
   return a;
 }
 
-// 관절에 (중립 기준) 오프셋을 적용해서 씀
-void setHip(int leg, int offset)   { sHip[leg].write(clampAngle(neutralHip[leg]   + dirHip[leg]   * offset)); }
-void setKnee(int leg, int offset)  { sKnee[leg].write(clampAngle(neutralKnee[leg]  + dirKnee[leg]  * offset)); }
-void setAnkle(int leg, int offset) { sAnkle[leg].write(clampAngle(neutralAnkle[leg]+ dirAnkle[leg] * offset)); }
+// 절대 각도(0~180)를 채널에 직접 씀
+void writeAngle(uint8_t ch, int angle) {
+  angle = clampAngle(angle);
+  int pulse = map(angle, 0, 180, SERVO_PULSE_MIN, SERVO_PULSE_MAX);
+  pwm.setPWM(ch, 0, pulse);
+}
+
+// 중립각 기준 오프셋을 방향 적용해서 씀 (걸음/동작에 사용)
+void moveJoint(uint8_t ch, int offset) {
+  writeAngle(ch, neutral[ch] + servoDir[ch] * offset);
+}
 
 // ---------- 자세 ----------
 void standNeutral() {
-  for (int leg = 0; leg < 2; leg++) {
-    setHip(leg, 0);
-    setKnee(leg, 0);
-    setAnkle(leg, 0);
+  for (uint8_t ch = 0; ch < NUM_SERVOS; ch++) {
+    writeAngle(ch, neutral[ch]);
   }
 }
 
-// ---------- 걸음걸이 (아주 단순한 오픈루프 보행) ----------
-// 한쪽 다리를 들어 앞으로, 반대쪽은 뒤로 밀며 무게중심 이동을 흉내냅니다.
-// 실제 보행 안정화는 IMU(MPU6050) 추가 후 튜닝이 필요합니다.
-void takeStep(int swingLeg) {
-  int standLeg = (swingLeg == LEFT) ? RIGHT : LEFT;
+// ---------- 걸음걸이 (단순 오픈루프 보행) ----------
+// 한 걸음: 무게중심 이동 → 스윙다리 들기 → 앞으로 → 내리기 → 복귀
+// swingRight=true 이면 오른다리를 내딛습니다.
+void takeStep(bool swingRight) {
+  // 지지 다리 / 스윙 다리 채널 선택
+  uint8_t sw_hip   = swingRight ? CH_R_HIP   : CH_L_HIP;
+  uint8_t sw_thigh = swingRight ? CH_R_THIGH : CH_L_THIGH;
+  uint8_t sw_calf  = swingRight ? CH_R_CALF  : CH_L_CALF;
+  uint8_t sw_ankle = swingRight ? CH_R_ANKLE : CH_L_ANKLE;
 
-  // 1) 무게중심을 지지발 쪽으로 (발목으로 살짝 기울임)
-  setAnkle(swingLeg, +GAIT_LIFT_AMP / 2);
-  setAnkle(standLeg, +GAIT_LIFT_AMP / 2);
-  delay(GAIT_STEP_DELAY_MS * 4);
+  uint8_t st_hip   = swingRight ? CH_L_HIP   : CH_R_HIP;
+  uint8_t st_ankle = swingRight ? CH_L_ANKLE : CH_R_ANKLE;
 
-  // 2) 스윙 다리 들기 (무릎 굽힘)
-  setKnee(swingLeg, GAIT_LIFT_AMP);
+  // 1) 무게중심을 지지발 쪽으로 (고관절/발목으로 기울임)
+  moveJoint(sw_hip,   +GAIT_SHIFT_AMP);
+  moveJoint(st_hip,   +GAIT_SHIFT_AMP);
+  moveJoint(sw_ankle, -GAIT_SHIFT_AMP);
+  moveJoint(st_ankle, -GAIT_SHIFT_AMP);
+  delay(GAIT_STEP_DELAY_MS * 5);
+
+  // 2) 스윙 다리 들기 (종아리 굽힘)
+  moveJoint(sw_calf, +GAIT_LIFT_AMP);
   delay(GAIT_STEP_DELAY_MS * 3);
 
-  // 3) 스윙 다리 앞으로 / 지지 다리 뒤로
-  setHip(swingLeg, +GAIT_SWING_AMP);
-  setHip(standLeg, -GAIT_SWING_AMP);
+  // 3) 스윙 다리 앞으로 (허벅지)
+  moveJoint(sw_thigh, +GAIT_SWING_AMP);
   delay(GAIT_STEP_DELAY_MS * 4);
 
   // 4) 스윙 다리 내리기
-  setKnee(swingLeg, 0);
+  moveJoint(sw_calf, 0);
   delay(GAIT_STEP_DELAY_MS * 3);
 
-  // 5) 발목 원위치
-  setAnkle(swingLeg, 0);
-  setAnkle(standLeg, 0);
-  delay(GAIT_STEP_DELAY_MS * 2);
+  // 5) 무게중심 복귀 + 허벅지 복귀
+  moveJoint(sw_hip, 0);
+  moveJoint(st_hip, 0);
+  moveJoint(sw_ankle, 0);
+  moveJoint(st_ankle, 0);
+  moveJoint(sw_thigh, 0);
+  delay(GAIT_STEP_DELAY_MS * 3);
 }
 
 void walkForward(int steps) {
   for (int i = 0; i < steps && walking; i++) {
-    takeStep(LEFT);
+    takeStep(true);   // 오른다리
     if (!walking) break;
-    takeStep(RIGHT);
+    takeStep(false);  // 왼다리
   }
   standNeutral();
+}
+
+// ---------- 손 흔들기 (인사) ----------
+void waveHand() {
+  moveJoint(CH_R_SHO_ROLL, 60);   // 오른팔 옆으로 올림
+  delay(300);
+  for (int i = 0; i < 3; i++) {
+    moveJoint(CH_R_ELBOW, 30);
+    delay(250);
+    moveJoint(CH_R_ELBOW, -10);
+    delay(250);
+  }
+  moveJoint(CH_R_ELBOW, 0);
+  moveJoint(CH_R_SHO_ROLL, 0);
 }
 
 // ---------- 셋업 / 루프 ----------
 void setup() {
   Serial.begin(9600);
 
-  sHip[LEFT].attach(PIN_L_HIP);
-  sKnee[LEFT].attach(PIN_L_KNEE);
-  sAnkle[LEFT].attach(PIN_L_ANKLE);
-  sHip[RIGHT].attach(PIN_R_HIP);
-  sKnee[RIGHT].attach(PIN_R_KNEE);
-  sAnkle[RIGHT].attach(PIN_R_ANKLE);
+  Wire.begin();
+  pwm.begin();
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(100);
 
   standNeutral();
 
-  Serial.println(F("HELIOS ready. Commands: n=neutral, w=walk, s=stop"));
+  Serial.println(F("HELIOS ready. Commands: n=neutral, w=walk, a=wave, s=stop"));
 }
 
 void loop() {
@@ -126,6 +148,10 @@ void loop() {
         Serial.println(F("-> walking 4 steps"));
         walkForward(4);
         walking = false;
+        break;
+      case 'a':
+        Serial.println(F("-> wave"));
+        waveHand();
         break;
       case 's':
         walking = false;
