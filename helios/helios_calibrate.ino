@@ -10,6 +10,8 @@
  *          - 각 관절의 안전한 가동 범위를 찾는다
  *
  *  ▶ 명령 형식 (시리얼 모니터 9600 또는 nRF Connect 텍스트):
+ *      "r"        → 조립 위치(홈)로 전체 이동
+ *                   (목/허리/어깨상하/양발목=90, 나머지=0)
  *      "9 45"     → 9번 채널을 45도로
  *      "all 90"   → 전체를 90도로
  *      "?"        → 현재 각도 목록 출력 (시리얼)
@@ -45,6 +47,13 @@ const char *chName[NUM_SERVOS] = {
   "5 L-sho-updn", "6 L-sho-open", "7 L-elbow",
   "8 R-hip", "9 R-thigh", "10 R-calf", "11 R-ankle",
   "12 L-hip", "13 L-thigh", "14 L-calf", "15 L-ankle"
+};
+
+// 조립(홈) 위치 [채널 0~15]
+// 목/허리/어깨상하/양발목 = 90, 나머지 = 0
+const int home[NUM_SERVOS] = {
+  90, 90, 90, 0, 0, 90, 0, 0,
+  0, 0, 0, 90, 0, 0, 0, 90
 };
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
@@ -93,6 +102,12 @@ void handleLine(String line) {
   if (line.length() == 0) return;
 
   if (line == "?") { printAll(); return; }
+
+  if (line == "r" || line == "R") {
+    for (int i = 0; i < NUM_SERVOS; i++) writeAngle(i, home[i]);
+    notifyPhone("home position\n");
+    return;
+  }
 
   int sp = line.indexOf(' ');
   if (sp < 0) { notifyPhone("format: <ch> <angle>\n"); return; }
@@ -157,7 +172,7 @@ void setup() {
   BLEDevice::startAdvertising();
 
   Serial.println(F("HELIOS calibration ready. Advertising as 'HELIOS-CAL'."));
-  Serial.println(F("Commands:  <ch> <angle>   e.g. '9 45'   |   'all 90'   |   '?'"));
+  Serial.println(F("Commands:  'r'=home  |  <ch> <angle> e.g. '9 45'  |  'all 90'  |  '?'"));
 }
 
 void loop() {
