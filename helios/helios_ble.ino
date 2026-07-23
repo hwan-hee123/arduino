@@ -34,7 +34,7 @@
 #define PCA9685_ADDR   0x40
 #define SERVO_FREQ     50
 #define SERVO_PULSE_MIN  150
-#define SERVO_PULSE_MAX  600
+#define SERVO_PULSE_MAX  500   // MG90S 범위에 맞게 낮춤
 
 // 채널 번호 (배선표 그대로)
 #define CH_HEAD        0

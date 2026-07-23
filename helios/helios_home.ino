@@ -28,7 +28,7 @@
 #define PCA9685_ADDR   0x40
 #define SERVO_FREQ     50
 #define SERVO_PULSE_MIN  150   // 0도
-#define SERVO_PULSE_MAX  600   // 180도
+#define SERVO_PULSE_MAX  500   // 180도 (MG90S 범위에 맞게 낮춤)
 #define NUM_SERVOS     16
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);

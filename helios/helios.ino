@@ -29,7 +29,7 @@
 #define PCA9685_ADDR   0x40
 #define SERVO_FREQ     50      // 아날로그 서보 = 50Hz
 #define SERVO_PULSE_MIN  150   // 약 0도 (서보에 맞게 미세조정)
-#define SERVO_PULSE_MAX  600   // 약 180도
+#define SERVO_PULSE_MAX  500   // 약 180도 (MG90S 범위에 맞게 낮춤)
 
 // ----- 채널 번호 (배선표 그대로) -----
 #define CH_HEAD        0   // 머리

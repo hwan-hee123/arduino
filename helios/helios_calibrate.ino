@@ -32,7 +32,7 @@
 #define PCA9685_ADDR   0x40
 #define SERVO_FREQ     50
 #define SERVO_PULSE_MIN  150
-#define SERVO_PULSE_MAX  600
+#define SERVO_PULSE_MAX  500   // MG90S 범위에 맞게 낮춤
 #define NUM_SERVOS     16
 
 // BLE UUID (Nordic UART Service)
