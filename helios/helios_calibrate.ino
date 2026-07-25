@@ -12,6 +12,7 @@
  *  ▶ 명령 형식 (시리얼 모니터 9600 또는 nRF Connect 텍스트):
  *      "9 45"     → 9번 채널을 45도로
  *      "9 r"      → 9번 채널만 조립 위치(홈)로 (helios_home 기준)
+ *      "p 3 600"  → 3번 채널에 펄스값 600을 직접 보냄 (한계 테스트용)
  *      "?"        → 현재 각도 목록 출력 (시리얼)
  *
  *  ⚠ 시작하면 서보에 힘이 들어가지 않습니다(limp).
@@ -115,8 +116,25 @@ void handleLine(String line) {
 
   if (line == "?") { printAll(); return; }
 
+  // "p <ch> <pulse>" → 펄스값을 직접 보냄 (서보 한계 테스트용)
+  if (line.startsWith("p ") || line.startsWith("P ")) {
+    String rest = line.substring(2);
+    rest.trim();
+    int sp2 = rest.indexOf(' ');
+    if (sp2 < 0) { notifyPhone("format: p <ch> <pulse>\n"); return; }
+    int pch = rest.substring(0, sp2).toInt();
+    int pulse = rest.substring(sp2 + 1).toInt();
+    if (pch < 0 || pch >= NUM_SERVOS) { notifyPhone("bad channel\n"); return; }
+    if (pulse < 80)  pulse = 80;
+    if (pulse > 650) pulse = 650;   // 안전 상한
+    pwm.setPWM(pch, 0, pulse);
+    curAngle[pch] = -2;             // 펄스 직접 지정 표시
+    notifyPhone(String(chName[pch]) + " -> pulse " + String(pulse) + "\n");
+    return;
+  }
+
   int sp = line.indexOf(' ');
-  if (sp < 0) { notifyPhone("format: <ch> <angle>  or  <ch> r  or  ?\n"); return; }
+  if (sp < 0) { notifyPhone("format: <ch> <angle>  or  <ch> r  or  p <ch> <pulse>  or  ?\n"); return; }
 
   String a = line.substring(0, sp);
   String b = line.substring(sp + 1);
