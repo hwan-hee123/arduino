@@ -11,7 +11,7 @@
  *
  *  ▶ 명령 형식 (시리얼 모니터 9600 또는 nRF Connect 텍스트):
  *      "9 45"     → 9번 채널을 45도로
- *      "r"        → 조립 위치(홈)로 전체 이동 (helios_home 기준)
+ *      "9 r"      → 9번 채널만 조립 위치(홈)로 (helios_home 기준)
  *      "?"        → 현재 각도 목록 출력 (시리얼)
  *
  *  ⚠ 시작하면 서보에 힘이 들어가지 않습니다(limp).
@@ -108,29 +108,31 @@ void printAll() {
 }
 
 // ---------- 명령 한 줄 처리 ----------
-// "9 45"  |  "r"  |  "?"
+// "9 45"  |  "9 r"  |  "?"
 void handleLine(String line) {
   line.trim();
   if (line.length() == 0) return;
 
   if (line == "?") { printAll(); return; }
 
-  if (line == "r" || line == "R") {
-    for (int i = 0; i < NUM_SERVOS; i++) writeAngle(i, home[i]);
-    notifyPhone("home position\n");
-    return;
-  }
-
   int sp = line.indexOf(' ');
-  if (sp < 0) { notifyPhone("format: <ch> <angle>  or  r  or  ?\n"); return; }
+  if (sp < 0) { notifyPhone("format: <ch> <angle>  or  <ch> r  or  ?\n"); return; }
 
   String a = line.substring(0, sp);
   String b = line.substring(sp + 1);
   a.trim(); b.trim();
-  int angle = b.toInt();
 
   int ch = a.toInt();
   if (ch < 0 || ch >= NUM_SERVOS) { notifyPhone("bad channel\n"); return; }
+
+  // "<ch> r" → 그 채널만 홈 위치로
+  if (b == "r" || b == "R") {
+    writeAngle(ch, home[ch]);
+    notifyPhone(String(chName[ch]) + " -> home(" + String(home[ch]) + ")\n");
+    return;
+  }
+
+  int angle = b.toInt();
   writeAngle(ch, angle);
   notifyPhone(String(chName[ch]) + " -> " + String(angle) + "\n");
 }
@@ -178,7 +180,7 @@ void setup() {
   BLEDevice::startAdvertising();
 
   Serial.println(F("HELIOS calibration ready. Advertising as 'HELIOS-CAL'."));
-  Serial.println(F("Commands:  <ch> <angle> e.g. '9 45'  |  'r'=home  |  '?'"));
+  Serial.println(F("Commands:  <ch> <angle> e.g. '9 45'  |  <ch> r (home)  |  '?'"));
 }
 
 void loop() {
