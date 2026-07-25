@@ -10,10 +10,8 @@
  *          - 각 관절의 안전한 가동 범위를 찾는다
  *
  *  ▶ 명령 형식 (시리얼 모니터 9600 또는 nRF Connect 텍스트):
- *      "r"        → 조립 위치(홈)로 전체 이동
- *                   (목/허리/어깨상하/양발목=90, 나머지=0)
  *      "9 45"     → 9번 채널을 45도로
- *      "all 90"   → 전체를 90도로
+ *      "r"        → 조립 위치(홈)로 전체 이동 (helios_home 기준)
  *      "?"        → 현재 각도 목록 출력 (시리얼)
  *
  *  ⚠ 시작하면 서보에 힘이 들어가지 않습니다(limp).
@@ -49,11 +47,25 @@ const char *chName[NUM_SERVOS] = {
   "12 L-hip", "13 L-thigh", "14 L-calf", "15 L-ankle"
 };
 
-// 조립(홈) 위치 [채널 0~15]
-// 목/허리/어깨상하/양발목 = 90, 나머지 = 0
+// 조립(홈) 위치 [채널 0~15] — helios_home.ino 와 동일
+// 오른쪽 0도 ↔ 왼쪽 180도 (좌우 서보가 거울로 장착됨)
 const int home[NUM_SERVOS] = {
-  90, 90, 90, 0, 0, 90, 0, 0,
-  0, 0, 0, 90, 0, 0, 0, 90
+  90,  // 0  머리(목)
+  90,  // 1  허리
+  90,  // 2  R 어깨 상하
+  0,   // 3  R 어깨 벌림
+  0,   // 4  R 팔꿈치
+  90,  // 5  L 어깨 상하
+  180, // 6  L 어깨 벌림
+  180, // 7  L 팔꿈치
+  0,   // 8  R 고관절
+  0,   // 9  R 허벅지
+  0,   // 10 R 종아리
+  90,  // 11 R 발목
+  180, // 12 L 고관절
+  180, // 13 L 허벅지
+  180, // 14 L 종아리
+  90   // 15 L 발목
 };
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
@@ -96,7 +108,7 @@ void printAll() {
 }
 
 // ---------- 명령 한 줄 처리 ----------
-// "9 45"  |  "all 90"  |  "?"
+// "9 45"  |  "r"  |  "?"
 void handleLine(String line) {
   line.trim();
   if (line.length() == 0) return;
@@ -110,18 +122,12 @@ void handleLine(String line) {
   }
 
   int sp = line.indexOf(' ');
-  if (sp < 0) { notifyPhone("format: <ch> <angle>\n"); return; }
+  if (sp < 0) { notifyPhone("format: <ch> <angle>  or  r  or  ?\n"); return; }
 
   String a = line.substring(0, sp);
   String b = line.substring(sp + 1);
   a.trim(); b.trim();
   int angle = b.toInt();
-
-  if (a == "all") {
-    for (int i = 0; i < NUM_SERVOS; i++) writeAngle(i, angle);
-    notifyPhone("all -> " + String(angle) + "\n");
-    return;
-  }
 
   int ch = a.toInt();
   if (ch < 0 || ch >= NUM_SERVOS) { notifyPhone("bad channel\n"); return; }
@@ -172,7 +178,7 @@ void setup() {
   BLEDevice::startAdvertising();
 
   Serial.println(F("HELIOS calibration ready. Advertising as 'HELIOS-CAL'."));
-  Serial.println(F("Commands:  'r'=home  |  <ch> <angle> e.g. '9 45'  |  'all 90'  |  '?'"));
+  Serial.println(F("Commands:  <ch> <angle> e.g. '9 45'  |  'r'=home  |  '?'"));
 }
 
 void loop() {
