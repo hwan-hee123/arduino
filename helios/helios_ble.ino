@@ -95,10 +95,11 @@ const int limitMax[NUM_SERVOS] = {
   90, 80, 180, 180, 90, 180, 80, 140
 };
 
-#define GAIT_STEP_DELAY_MS  20
-#define GAIT_SWING_AMP      20
-#define GAIT_LIFT_AMP       20
-#define GAIT_SHIFT_AMP      12
+// 걸음걸이 파라미터 (측정 범위 안에서. 테스트하며 조정)
+#define GAIT_STEP_DELAY_MS  20   // 프레임 간 지연(작을수록 빠름)
+#define KNEE_LIFT    45   // 무릎 굽혀 발 들기 (종아리, 범위 내 최대 80)
+#define THIGH_STEP   30   // 허벅지 앞으로 내딛기 (범위 내 최대 80)
+#define ANKLE_SHIFT  20   // 발목으로 무게 좌우 이동
 
 // BLE UUID (Nordic UART Service)
 #define NUS_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -133,24 +134,45 @@ void standNeutral() {
   for (uint8_t ch = 0; ch < NUM_SERVOS; ch++) writeAngle(ch, neutral[ch]);
 }
 
-// ---------- 걸음걸이 ----------
-void takeStep(bool swingRight) {
-  uint8_t sw_hip   = swingRight ? CH_R_HIP   : CH_L_HIP;
-  uint8_t sw_thigh = swingRight ? CH_R_THIGH : CH_L_THIGH;
-  uint8_t sw_calf  = swingRight ? CH_R_CALF  : CH_L_CALF;
-  uint8_t sw_ankle = swingRight ? CH_R_ANKLE : CH_L_ANKLE;
-  uint8_t st_hip   = swingRight ? CH_L_HIP   : CH_R_HIP;
-  uint8_t st_ankle = swingRight ? CH_L_ANKLE : CH_R_ANKLE;
+// ---------- 걸음걸이용 동작 함수 (관절 특성 반영) ----------
+//  (측정값: R종아리 직립180→굽힘100 / L종아리 직립0→굽힘80)
+//           (R허벅지 홈0→앞80 / L허벅지 홈180→앞100)
 
-  moveJoint(sw_hip, +GAIT_SHIFT_AMP);  moveJoint(st_hip, +GAIT_SHIFT_AMP);
-  moveJoint(sw_ankle, -GAIT_SHIFT_AMP); moveJoint(st_ankle, -GAIT_SHIFT_AMP);
-  delay(GAIT_STEP_DELAY_MS * 5);
-  moveJoint(sw_calf, +GAIT_LIFT_AMP);   delay(GAIT_STEP_DELAY_MS * 3);
-  moveJoint(sw_thigh, +GAIT_SWING_AMP); delay(GAIT_STEP_DELAY_MS * 4);
-  moveJoint(sw_calf, 0);                delay(GAIT_STEP_DELAY_MS * 3);
-  moveJoint(sw_hip, 0);  moveJoint(st_hip, 0);
-  moveJoint(sw_ankle, 0); moveJoint(st_ankle, 0);
-  moveJoint(sw_thigh, 0); delay(GAIT_STEP_DELAY_MS * 3);
+// 무릎 굽힘: bend=0 펴짐(직립), bend 커질수록 굽힘
+void kneeBend(bool isRight, int bend) {
+  if (isRight) writeAngle(CH_R_CALF, 180 - bend);  // 오른종아리: 180에서 감소
+  else         writeAngle(CH_L_CALF,   0 + bend);  // 왼종아리: 0에서 증가
+}
+
+// 허벅지 내딛기: fwd=0 중립, fwd 커질수록 앞으로
+void thighStep(bool isRight, int fwd) {
+  if (isRight) writeAngle(CH_R_THIGH,   0 + fwd);  // 오른허벅지: 0에서 증가
+  else         writeAngle(CH_L_THIGH, 180 - fwd);  // 왼허벅지: 180에서 감소
+}
+
+// 발목 무게이동: amt>0 = 한쪽으로 기울여 무게 이동
+//  (몸이 안 기울고 비틀리면 왼발목 부호를 (90 - amt)로 바꾸세요)
+void ankleShift(int amt) {
+  writeAngle(CH_R_ANKLE, 90 + amt);   // 오른발목
+  writeAngle(CH_L_ANKLE, 90 + amt);   // 왼발목
+}
+
+// ---------- 한 걸음 (swingRight=true → 오른다리 내딛음) ----------
+void takeStep(bool swingRight) {
+  int shiftDir = swingRight ? -1 : +1;  // 드는 다리 반대(지지발)로 무게 이동
+
+  ankleShift(shiftDir * ANKLE_SHIFT);       // 1) 무게중심 지지발로
+  delay(GAIT_STEP_DELAY_MS * 6);
+  kneeBend(swingRight, KNEE_LIFT);          // 2) 스윙 다리 들기
+  delay(GAIT_STEP_DELAY_MS * 4);
+  thighStep(swingRight, THIGH_STEP);        // 3) 스윙 다리 앞으로
+  delay(GAIT_STEP_DELAY_MS * 4);
+  kneeBend(swingRight, 0);                   // 4) 스윙 발 내리기
+  delay(GAIT_STEP_DELAY_MS * 4);
+  ankleShift(0);                             // 5) 무게중심 중앙 복귀
+  delay(GAIT_STEP_DELAY_MS * 4);
+  thighStep(swingRight, 0);                  // 6) 허벅지 복귀 (몸 앞으로)
+  delay(GAIT_STEP_DELAY_MS * 3);
 }
 void walkForward(int steps) {
   for (int i = 0; i < steps && walking; i++) {
