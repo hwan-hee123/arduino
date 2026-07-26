@@ -85,6 +85,16 @@ const int servoDir[NUM_SERVOS] = {
   +1, +1, +1, +1, -1, -1, -1, -1
 };
 
+// 채널별 안전 가동 범위 (측정값). 이 범위를 벗어나는 명령은 자동으로 막힘.
+const int limitMin[NUM_SERVOS] = {
+  0, 0, 0, 0, 0, 0, 0, 70,
+  0, 0, 100, 40, 0, 100, 0, 0
+};
+const int limitMax[NUM_SERVOS] = {
+  179, 180, 180, 180, 130, 180, 180, 180,
+  90, 80, 180, 180, 90, 180, 80, 140
+};
+
 #define GAIT_STEP_DELAY_MS  20
 #define GAIT_SWING_AMP      20
 #define GAIT_LIFT_AMP       20
@@ -107,13 +117,10 @@ bool deviceConnected = false;
 BLECharacteristic *txChar;
 
 // ---------- 서보 저수준 ----------
-int clampAngle(int a) {
-  if (a < SERVO_MIN_ANGLE) return SERVO_MIN_ANGLE;
-  if (a > SERVO_MAX_ANGLE) return SERVO_MAX_ANGLE;
-  return a;
-}
 void writeAngle(uint8_t ch, int angle) {
-  angle = clampAngle(angle);
+  // 채널별 안전 범위로 제한
+  if (angle < limitMin[ch]) angle = limitMin[ch];
+  if (angle > limitMax[ch]) angle = limitMax[ch];
   int pulse = map(angle, 0, 180, SERVO_PULSE_MIN, SERVO_PULSE_MAX);
   pwm.setPWM(ch, 0, pulse);
 }

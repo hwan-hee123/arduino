@@ -69,6 +69,17 @@ const int home[NUM_SERVOS] = {
   90   // 15 L 발목
 };
 
+// 채널별 안전 가동 범위 (측정값). "<ch> <angle>" 명령은 이 범위로 제한됨.
+// (범위 밖을 테스트하려면 "p <ch> <pulse>" 로 펄스를 직접 보내세요.)
+const int limitMin[NUM_SERVOS] = {
+  0, 0, 0, 0, 0, 0, 0, 70,
+  0, 0, 100, 40, 0, 100, 0, 0
+};
+const int limitMax[NUM_SERVOS] = {
+  179, 180, 180, 180, 130, 180, 180, 180,
+  90, 80, 180, 180, 90, 180, 80, 140
+};
+
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 
 int  curAngle[NUM_SERVOS];      // 마지막으로 보낸 각도 (-1 = 아직 안 보냄/limp)
@@ -80,8 +91,9 @@ bool bleHasLine = false;
 // ---------- 서보 출력 ----------
 void writeAngle(int ch, int angle) {
   if (ch < 0 || ch >= NUM_SERVOS) return;
-  if (angle < 0)   angle = 0;
-  if (angle > 180) angle = 180;
+  // 채널별 안전 범위로 제한
+  if (angle < limitMin[ch]) angle = limitMin[ch];
+  if (angle > limitMax[ch]) angle = limitMax[ch];
   int pulse = map(angle, 0, 180, SERVO_PULSE_MIN, SERVO_PULSE_MAX);
   pwm.setPWM(ch, 0, pulse);
   curAngle[ch] = angle;
