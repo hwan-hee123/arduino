@@ -194,6 +194,40 @@ void waveHand() {
   moveJoint(CH_R_SHO_ROLL, 0);
 }
 
+// ---------- 지르기(펀치) 콤보 ----------
+// 팔 동작은 moveJoint 오프셋으로 좌우 자동 대칭 처리 (servoDir 반영).
+// 실제 로봇에서 방향이 어색하면 아래 값의 부호/크기를 조정하세요.
+#define GUARD_ELBOW    100  // 가드 시 팔꿈치 굽힘
+#define GUARD_SHOULDER  35  // 가드 시 어깨 살짝 들기
+#define PUNCH_ELBOW     10  // 지를 때 팔꿈치 펴기 (작을수록 곧게)
+#define PUNCH_SHOULDER  70  // 지를 때 어깨 앞으로
+
+// 한 팔 가드 자세
+void armGuard(bool isRight) {
+  moveJoint(isRight ? CH_R_SHO_PITCH : CH_L_SHO_PITCH, GUARD_SHOULDER);
+  moveJoint(isRight ? CH_R_ELBOW     : CH_L_ELBOW,     GUARD_ELBOW);
+}
+// 한 팔 지르기 (앞으로 뻗기)
+void armPunch(bool isRight) {
+  moveJoint(isRight ? CH_R_SHO_PITCH : CH_L_SHO_PITCH, PUNCH_SHOULDER);
+  moveJoint(isRight ? CH_R_ELBOW     : CH_L_ELBOW,     PUNCH_ELBOW);
+}
+
+// 가드 → 오른손 지르기 → 가드 → 왼손 지르기 → 가드 → 차렷
+void punchCombo() {
+  armGuard(true); armGuard(false);   // 1) 양손 가드 올리기
+  delay(400);
+
+  armPunch(true);  delay(250);       // 2) 오른손 지르기
+  armGuard(true);  delay(250);       // 3) 오른손 가드 복귀
+
+  armPunch(false); delay(250);       // 4) 왼손 지르기
+  armGuard(false); delay(250);       // 5) 왼손 가드 복귀
+
+  delay(200);
+  standNeutral();                    // 6) 차렷 자세로
+}
+
 // ---------- 폰으로 상태 문자 보내기 ----------
 void notifyPhone(const char *msg) {
   if (deviceConnected && txChar) {
@@ -217,7 +251,7 @@ class RxCallbacks : public BLECharacteristicCallbacks {
     String v = c->getValue().c_str();
     for (unsigned int i = 0; i < v.length(); i++) {
       char ch = v[i];
-      if (ch=='n'||ch=='w'||ch=='a'||ch=='s') pendingCmd = ch;
+      if (ch=='n'||ch=='w'||ch=='a'||ch=='s'||ch=='p') pendingCmd = ch;
     }
   }
 };
@@ -228,6 +262,7 @@ void handleCommand(char cmd) {
     case 'n': walking = false; standNeutral();       notifyPhone("neutral\n"); break;
     case 'w': walking = true;  notifyPhone("walk\n"); walkForward(4); walking = false; break;
     case 'a': notifyPhone("wave\n"); waveHand();      break;
+    case 'p': notifyPhone("punch\n"); punchCombo();   break;
     case 's': walking = false; notifyPhone("stop\n"); break;
   }
 }
