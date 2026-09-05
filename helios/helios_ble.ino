@@ -240,6 +240,33 @@ void punchCombo() {
   standNeutral();                    // 6) 차렷 자세로
 }
 
+// ---------- 무릎 구부리기 (스쿼트) ----------
+#define SQUAT_KNEE   50   // 무릎 굽힘 정도 (양 종아리)
+#define SQUAT_THIGH  30   // 허벅지 굽힘(균형용, 엉덩이 낮추기)
+#define SQUAT_STEPS   4   // 부드럽게 나눌 단계 수
+
+// 양 다리를 amt(0~SQUAT_KNEE)만큼 굽힌 자세로
+void squatPose(int knee, int thigh) {
+  kneeBend(true, knee);  kneeBend(false, knee);
+  thighStep(true, thigh); thighStep(false, thigh);
+}
+
+// 앉았다 일어서기
+void squat() {
+  // 내려가기 (단계별로 부드럽게)
+  for (int i = 1; i <= SQUAT_STEPS; i++) {
+    squatPose(SQUAT_KNEE * i / SQUAT_STEPS, SQUAT_THIGH * i / SQUAT_STEPS);
+    delay(150);
+  }
+  delay(500);   // 앉은 자세 유지
+  // 올라오기
+  for (int i = SQUAT_STEPS - 1; i >= 0; i--) {
+    squatPose(SQUAT_KNEE * i / SQUAT_STEPS, SQUAT_THIGH * i / SQUAT_STEPS);
+    delay(150);
+  }
+  standNeutral();
+}
+
 // ---------- 폰으로 상태 문자 보내기 ----------
 void notifyPhone(const char *msg) {
   if (deviceConnected && txChar) {
@@ -263,7 +290,7 @@ class RxCallbacks : public BLECharacteristicCallbacks {
     String v = c->getValue().c_str();
     for (unsigned int i = 0; i < v.length(); i++) {
       char ch = v[i];
-      if (ch=='n'||ch=='w'||ch=='a'||ch=='s'||ch=='p') pendingCmd = ch;
+      if (ch=='n'||ch=='w'||ch=='a'||ch=='s'||ch=='p'||ch=='k') pendingCmd = ch;
     }
   }
 };
@@ -275,6 +302,7 @@ void handleCommand(char cmd) {
     case 'w': walking = true;  notifyPhone("walk\n"); walkForward(4); walking = false; break;
     case 'a': notifyPhone("wave\n"); waveHand();      break;
     case 'p': notifyPhone("punch\n"); punchCombo();   break;
+    case 'k': notifyPhone("squat\n"); squat();        break;
     case 's': walking = false; notifyPhone("stop\n"); break;
   }
 }
