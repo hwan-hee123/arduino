@@ -101,7 +101,7 @@ def main():
     port = find_port()
     print(f"'{port}' 연결 중...")
     try:
-        ser = serial.Serial(port, BAUD, timeout=0.1)
+        ser = serial.Serial(port, BAUD, timeout=0.1, write_timeout=0.05)
     except Exception as e:
         print("!! 포트 열기 실패:", e)
         print("   → 아두이노 시리얼 모니터가 열려 있으면 닫으세요 (포트 충돌).")
@@ -116,6 +116,10 @@ def main():
         print("!! 웹캠을 못 엶. 다른 프로그램(줌 등)이 쓰는지 확인.")
         ser.close()
         return
+    # 성능: 해상도 낮추고 버퍼 최소화 (끊김 방지)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     print("웹캠 시작! (창에서 q 로 종료)")
 
     pose = mp_pose.Pose(model_complexity=0,
