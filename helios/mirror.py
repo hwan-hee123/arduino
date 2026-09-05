@@ -89,16 +89,21 @@ def compute_servo_angles(lm, w, h):
 
 
 async def find_device():
-    print(f"'{DEVICE_NAME}' 찾는 중...")
-    # scan_test 처럼 전체 스캔 후 주소/이름으로 매칭 (제일 안정적)
-    devices = await BleakScanner.discover(timeout=12.0)
-    if DEVICE_ADDRESS:
+    # 여러 번 재시도 (로봇 광고가 끊겼다 켜질 수 있어서)
+    for attempt in range(1, 6):
+        print(f"[{attempt}/5] '{DEVICE_NAME}' 찾는 중... (8초)")
+        devices = await BleakScanner.discover(timeout=8.0)
+        print(f"    {len(devices)}개 기기 스캔됨")
+        if DEVICE_ADDRESS:
+            for d in devices:
+                if d.address.upper() == DEVICE_ADDRESS.upper():
+                    print(f"    -> 주소로 발견: {d.address}")
+                    return d
         for d in devices:
-            if d.address.upper() == DEVICE_ADDRESS.upper():
+            if d.name and DEVICE_NAME in d.name:
+                print(f"    -> 이름으로 발견: {d.name}")
                 return d
-    for d in devices:
-        if d.name and DEVICE_NAME in d.name:
-            return d
+        print("    아직 못 찾음, 재시도...")
     raise RuntimeError(f"'{DEVICE_NAME}' 를 못 찾음. 로봇 전원/블루투스 확인.")
 
 
