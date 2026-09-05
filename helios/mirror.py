@@ -101,12 +101,22 @@ def main():
     port = find_port()
     print(f"'{port}' 연결 중...")
     try:
-        ser = serial.Serial(port, BAUD, timeout=0.1, write_timeout=0.05)
+        ser = serial.Serial()
+        ser.port = port
+        ser.baudrate = BAUD
+        ser.timeout = 0.1
+        ser.write_timeout = 0.5
+        # ESP32가 포트 열 때 리셋/멈춤에 빠지지 않도록 DTR/RTS 내림
+        ser.dtr = False
+        ser.rts = False
+        ser.open()
     except Exception as e:
         print("!! 포트 열기 실패:", e)
         print("   → 아두이노 시리얼 모니터가 열려 있으면 닫으세요 (포트 충돌).")
         return
-    time.sleep(2.0)   # 보드 리셋 대기
+    time.sleep(2.0)   # 보드 안정화 대기
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
     print("연결됨! 웹캠 여는 중...")
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
