@@ -201,16 +201,28 @@ void waveHand() {
 #define GUARD_SHOULDER  35  // 가드 시 어깨 살짝 들기
 #define PUNCH_ELBOW     10  // 지를 때 팔꿈치 펴기 (작을수록 곧게)
 #define PUNCH_SHOULDER  70  // 지를 때 어깨 앞으로
+#define WAIST_TWIST     30  // 지를 때 몸통 회전 각도
 
-// 한 팔 가드 자세
+// 몸통 회전 (머리는 반대로 돌려 정면 고정)
+//  dir>0 한쪽 / dir<0 반대쪽 / dir=0 정면. 방향이 반대면 부호를 바꾸세요.
+void torsoTwist(int dir) {
+  int w = 90 + dir * WAIST_TWIST;
+  writeAngle(CH_WAIST, w);
+  writeAngle(CH_HEAD, 180 - w);   // 머리를 반대로 돌려 정면 유지
+}
+
+// 한 팔 가드 자세 (몸통 정면)
 void armGuard(bool isRight) {
   moveJoint(isRight ? CH_R_SHO_PITCH : CH_L_SHO_PITCH, GUARD_SHOULDER);
   moveJoint(isRight ? CH_R_ELBOW     : CH_L_ELBOW,     GUARD_ELBOW);
+  torsoTwist(0);
 }
-// 한 팔 지르기 (앞으로 뻗기)
+// 한 팔 지르기 (앞으로 뻗기 + 몸통 회전)
+//  오른손 지르기 → 몸통 왼쪽 / 왼손 지르기 → 몸통 오른쪽
 void armPunch(bool isRight) {
   moveJoint(isRight ? CH_R_SHO_PITCH : CH_L_SHO_PITCH, PUNCH_SHOULDER);
   moveJoint(isRight ? CH_R_ELBOW     : CH_L_ELBOW,     PUNCH_ELBOW);
+  torsoTwist(isRight ? +1 : -1);
 }
 
 // 가드 → 오른손 지르기 → 가드 → 왼손 지르기 → 가드 → 차렷
