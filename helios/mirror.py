@@ -33,6 +33,7 @@ except Exception:
 
 # ---- 설정 ----
 DEVICE_NAME = "HELIOS-MIRROR"
+DEVICE_ADDRESS = "14:C1:9F:50:AC:89"   # scan_test에서 확인한 주소 (비우면 이름으로 찾음)
 NUS_RX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # 폰/PC → 로봇
 SEND_HZ = 12                 # 초당 전송 횟수 (너무 빠르면 끊김)
 SMOOTH = 0.5                 # 각도 부드럽게 (0=즉시, 1=아주 느림)
@@ -89,10 +90,16 @@ def compute_servo_angles(lm, w, h):
 
 async def find_device():
     print(f"'{DEVICE_NAME}' 찾는 중...")
-    d = await BleakScanner.find_device_by_name(DEVICE_NAME, timeout=10.0)
-    if d is None:
-        raise RuntimeError(f"'{DEVICE_NAME}' 를 못 찾음. 로봇 전원/블루투스 확인.")
-    return d
+    # scan_test 처럼 전체 스캔 후 주소/이름으로 매칭 (제일 안정적)
+    devices = await BleakScanner.discover(timeout=12.0)
+    if DEVICE_ADDRESS:
+        for d in devices:
+            if d.address.upper() == DEVICE_ADDRESS.upper():
+                return d
+    for d in devices:
+        if d.name and DEVICE_NAME in d.name:
+            return d
+    raise RuntimeError(f"'{DEVICE_NAME}' 를 못 찾음. 로봇 전원/블루투스 확인.")
 
 
 async def main():
