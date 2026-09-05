@@ -109,9 +109,24 @@ async def find_device():
 
 async def main():
     device = await find_device()
-    async with BleakClient(device) as client:
-        print("연결됨! 웹캠 시작. (창에서 q 로 종료)")
-        cap = cv2.VideoCapture(0)
+    print("로봇에 연결 시도 중... (최대 20초)")
+    client = BleakClient(device, timeout=20.0)
+    try:
+        await client.connect()
+    except Exception as e:
+        print("!! 연결 실패:", e)
+        print("   → 로봇을 리셋(USB 재연결)하고, 폰 nRF Connect는 닫은 채 다시 실행하세요.")
+        return
+    print("연결됨! 웹캠 여는 중...")
+    try:
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)   # 윈도우에서 더 빠름
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("!! 웹캠을 못 엶. 다른 프로그램(줌 등)이 쓰는지 확인.")
+            await client.disconnect()
+            return
+        print("웹캠 시작! (창에서 q 로 종료)")
         pose = mp_pose.Pose(model_complexity=0,
                             min_detection_confidence=0.5,
                             min_tracking_confidence=0.5)
@@ -155,6 +170,8 @@ async def main():
         cap.release()
         cv2.destroyAllWindows()
         print("종료.")
+    finally:
+        await client.disconnect()
 
 
 if __name__ == "__main__":
