@@ -201,7 +201,7 @@ void waveHand() {
 #define GUARD_SHOULDER  35  // 가드 시 어깨 살짝 들기
 #define PUNCH_ELBOW     10  // 지를 때 팔꿈치 펴기 (작을수록 곧게)
 #define PUNCH_SHOULDER  70  // 지를 때 어깨 앞으로
-#define WAIST_TWIST     30  // 지를 때 몸통 회전 각도
+#define WAIST_TWIST     40  // 지를 때 몸통 회전 각도
 
 // 몸통 회전 (머리는 반대로 돌려 정면 고정)
 //  dir>0 한쪽 / dir<0 반대쪽 / dir=0 정면. 방향이 반대면 부호를 바꾸세요.
