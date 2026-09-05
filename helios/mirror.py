@@ -23,6 +23,14 @@ import mediapipe as mp
 import numpy as np
 from bleak import BleakScanner, BleakClient
 
+# Windows: 웹캠(GUI)과 블루투스(bleak)를 같이 쓸 때 생기는 COM 충돌 해결
+# ("Thread is configured for Windows GUI but callbacks are not working" 방지)
+try:
+    from bleak.backends.winrt.util import allow_sta
+    allow_sta()
+except Exception:
+    pass
+
 # ---- 설정 ----
 DEVICE_NAME = "HELIOS-MIRROR"
 NUS_RX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # 폰/PC → 로봇
