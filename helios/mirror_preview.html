@@ -7,209 +7,193 @@
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: #0f1115; color: #e8eaed;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    padding: 16px;
-  }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  .sub { color: #9aa0a6; font-size: 13px; margin-bottom: 14px; }
-  .stage { display: flex; gap: 16px; flex-wrap: wrap; }
-  .panel { background: #171a21; border: 1px solid #262b36; border-radius: 12px; padding: 10px; }
-  .panel h2 { font-size: 13px; margin: 2px 0 8px; color: #9aa0a6; font-weight: 600; }
-  canvas { background: #0b0d11; border-radius: 8px; display: block; }
-  #status { font-size: 13px; color: #ffcf66; margin: 8px 0; min-height: 18px; }
-  .controls { margin-top: 16px; max-width: 720px; }
-  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
-  .row label { width: 150px; font-size: 13px; color: #c7ccd4; }
-  .row input[type=range] { flex: 1; }
-  .row .val { width: 48px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
-  .angles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 18px; font-size: 13px;
-            font-variant-numeric: tabular-nums; margin-top: 6px; }
-  .angles div { display: flex; justify-content: space-between; border-bottom: 1px dashed #262b36; padding: 2px 0; }
-  .angles b { color: #8ab4f8; font-weight: 600; }
-  .hint { font-size: 12px; color: #9aa0a6; margin-top: 12px; line-height: 1.6; }
-  code { background: #262b36; padding: 1px 5px; border-radius: 4px; }
+  body { margin:0; background:#0f1115; color:#e8eaed;
+    font-family: system-ui,-apple-system,"Segoe UI",sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:#9aa0a6; font-size:13px; margin-bottom:14px; }
+  .stage { display:flex; gap:16px; flex-wrap:wrap; }
+  .panel { background:#171a21; border:1px solid #262b36; border-radius:12px; padding:10px; }
+  .panel h2 { font-size:13px; margin:2px 0 8px; color:#9aa0a6; font-weight:600; }
+  canvas { background:#0b0d11; border-radius:8px; display:block; }
+  #status { font-size:13px; color:#ffcf66; margin:8px 0; min-height:18px; }
+  .controls { margin-top:16px; max-width:720px; }
+  .row { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label { width:150px; font-size:13px; color:#c7ccd4; }
+  .row input[type=range] { flex:1; }
+  .row .val { width:48px; text-align:right; font-variant-numeric:tabular-nums; font-size:13px; }
+  .angles { display:grid; grid-template-columns:repeat(2,1fr); gap:4px 18px; font-size:13px;
+            font-variant-numeric:tabular-nums; margin-top:6px; }
+  .angles div { display:flex; justify-content:space-between; border-bottom:1px dashed #262b36; padding:2px 0; }
+  .angles b { color:#8ab4f8; font-weight:600; }
+  .hint { font-size:12px; color:#9aa0a6; margin-top:12px; line-height:1.6; }
+  code { background:#262b36; padding:1px 5px; border-radius:4px; }
   .flip { display:flex; align-items:center; gap:8px; font-size:13px; margin:8px 0; }
 </style>
 </head>
 <body>
   <h1>☀ HELIOS 미러링 미리보기</h1>
-  <div class="sub">웹캠 앞에서 상체를 움직이면 오른쪽 로봇 아바타가 따라 합니다. 로봇·파이썬 없이 매핑을 미리 확인·튜닝하세요.</div>
+  <div class="sub">웹캠 앞에서 상체를 움직이면 로봇 아바타가 따라 합니다. 정면 + 옆모습으로 "앞으로 들기"도 확인돼요. 로봇·파이썬 없이 튜닝하세요.</div>
   <div id="status">카메라 준비 중… (권한 요청이 뜨면 "허용")</div>
 
   <div class="stage">
-    <div class="panel">
-      <h2>웹캠 (자세 인식)</h2>
-      <canvas id="cam" width="480" height="360"></canvas>
-    </div>
-    <div class="panel">
-      <h2>로봇 아바타 (예상 동작)</h2>
-      <canvas id="robot" width="360" height="360"></canvas>
-    </div>
-    <div class="panel">
-      <h2>서보 각도 (0~15 중 상체)</h2>
-      <div class="angles" id="angles"></div>
-    </div>
+    <div class="panel"><h2>웹캠 (자세 인식)</h2><canvas id="cam" width="440" height="330"></canvas></div>
+    <div class="panel"><h2>로봇 — 정면</h2><canvas id="robotF" width="300" height="330"></canvas></div>
+    <div class="panel"><h2>로봇 — 옆모습</h2><canvas id="robotS" width="240" height="330"></canvas></div>
+    <div class="panel"><h2>서보 각도 (상체)</h2><div class="angles" id="angles"></div></div>
   </div>
 
   <div class="controls">
     <label class="flip"><input type="checkbox" id="flip"> 좌우 반대로 (FLIP_LEFT_RIGHT)</label>
     <div class="row"><label>HEAD_SCALE (머리)</label><input type="range" id="s_head" min="0" max="400" value="160"><span class="val" id="v_head">160</span></div>
     <div class="row"><label>WAIST_SCALE (허리)</label><input type="range" id="s_waist" min="0" max="400" value="120"><span class="val" id="v_waist">120</span></div>
-    <div class="row"><label>SHO_PITCH (어깨 상하)</label><input type="range" id="s_pitch" min="0" max="200" value="110"><span class="val" id="v_pitch">110</span></div>
-    <div class="row"><label>SHO_ROLL (어깨 벌림)</label><input type="range" id="s_roll" min="0" max="300" value="150"><span class="val" id="v_roll">150</span></div>
+    <div class="row"><label>SHO_PITCH (어깨 앞/위)</label><input type="range" id="s_pitch" min="0" max="200" value="110"><span class="val" id="v_pitch">110</span></div>
+    <div class="row"><label>SHO_ROLL (어깨 옆벌림)</label><input type="range" id="s_roll" min="0" max="300" value="150"><span class="val" id="v_roll">150</span></div>
     <div class="row"><label>SMOOTH (부드럽게)</label><input type="range" id="s_smooth" min="0" max="95" value="50"><span class="val" id="v_smooth">0.50</span></div>
     <div class="hint">
-      마음에 드는 값을 찾으면 <code>mirror.py</code> 상단의 같은 이름 값에 넣으세요.<br>
-      방향이 반대면 위 "좌우 반대로" 체크 (또는 SCALE 값을 음수로).
+      마음에 드는 값을 <code>mirror.py</code> 상단 같은 이름에 넣으세요. 방향이 반대면 "좌우 반대로" 체크.<br>
+      ※ 앞/옆 구분은 웹캠 하나로 추정한 깊이라 완벽하진 않고 조금 흔들릴 수 있어요.
     </div>
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 <script>
-const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const lerp=(a,b,t)=>a*(1-t)+b*t;
 function angleAt(a,b,c){
-  const bax=a.x-b.x, bay=a.y-b.y, bcx=c.x-b.x, bcy=c.y-b.y;
-  const dot=bax*bcx+bay*bcy;
-  const m=Math.hypot(bax,bay)*Math.hypot(bcx,bcy)+1e-6;
+  const bax=a.x-b.x,bay=a.y-b.y,bcx=c.x-b.x,bcy=c.y-b.y;
+  const dot=bax*bcx+bay*bcy, m=Math.hypot(bax,bay)*Math.hypot(bcx,bcy)+1e-6;
   return Math.acos(clamp(dot/m,-1,1))*180/Math.PI;
 }
 
-// 튜닝 파라미터 (슬라이더로 조절)
-const P = { HEAD:160, WAIST:120, PITCH:110, ROLL:150, SMOOTH:0.5, FLIP:false };
+const P={HEAD:160,WAIST:120,PITCH:110,ROLL:150,SMOOTH:0.5,FLIP:false};
+let sm={head:90,waist:90,r:{roll:0,elev:0,bend:0},l:{roll:0,elev:0,bend:0}};
 
-// 부드럽게용 저장
-let sm = { head:90, waist:90, r:{lift:0,roll:0,bend:0}, l:{lift:0,roll:0,bend:0} };
-const lerp=(a,b,t)=>a*(1-t)+b*t;
-
+// 3D(깊이 z 포함) 팔 계산: roll=옆벌림, elev=앞/위로 든 정도, bend=팔꿈치
 function armMetrics(S,E,W){
-  const vx=E.x-S.x, vy=E.y-S.y;
-  const len=Math.hypot(vx,vy)+1e-6;
-  const horiz=Math.abs(vx)/len;          // 옆 벌림 0..1
-  const vert_up=(S.y-E.y)/len;           // 위로 -1..1
-  const roll=clamp(horiz*P.ROLL,0,180);
-  const lift=clamp((vert_up+0.2)*P.PITCH,0,90);
+  const dx=E.x-S.x, dy=E.y-S.y, dz=E.z-S.z;
+  const len=Math.hypot(dx,dy,dz)+1e-6;
+  const side=Math.abs(dx)/len;      // 옆으로 0..1
+  const up=-dy/len;                 // 위로 -1..1
+  const fwd=-dz/len;                // 앞으로(카메라쪽) -1..1
+  const roll=clamp(side*P.ROLL,0,180);
+  const elev=clamp((up*0.6+fwd*0.9+0.2)*P.PITCH,0,90);   // 앞 or 위 → 어깨 상하
   const bend=clamp(180-angleAt(S,E,W),0,130);
-  return {lift,roll,bend};
+  return {roll,elev,bend};
 }
 
-function compute(lm, vw, vh){
-  const pt=(i)=>({x:lm[i].x*vw, y:lm[i].y*vh});
+function compute(lm,vw,vh){
+  const pt=(i)=>({x:lm[i].x*vw, y:lm[i].y*vh, z:lm[i].z*vw});
   const Ls=pt(11),Rs=pt(12),Le=pt(13),Re=pt(14),Lw=pt(15),Rw=pt(16),Lh=pt(23),Rh=pt(24),nose=pt(0);
   const sho_w=Math.hypot(Ls.x-Rs.x,Ls.y-Rs.y)+1e-6;
-  const midSx=(Ls.x+Rs.x)/2, midHx=(Lh.x+Rh.x)/2, midSy=(Ls.y+Rs.y)/2;
+  const midSx=(Ls.x+Rs.x)/2, midHx=(Lh.x+Rh.x)/2;
   let head=clamp(90+(nose.x-midSx)/sho_w*P.HEAD,0,179);
   let waist=clamp(90+(midSx-midHx)/sho_w*P.WAIST,0,180);
-  let r=armMetrics(Rs,Re,Rw);   // 사람 오른팔
-  let l=armMetrics(Ls,Le,Lw);   // 사람 왼팔
+  let r=armMetrics(Rs,Re,Rw), l=armMetrics(Ls,Le,Lw);
   if(P.FLIP){ const t=r; r=l; l=t; head=clamp(180-head,0,179); waist=clamp(180-waist,0,180); }
   return {head,waist,r,l};
 }
 
 function toServos(c){
   return {
-    0: Math.round(c.head),
-    1: Math.round(c.waist),
-    2: Math.round(clamp(90+c.r.lift,0,180)),
-    3: Math.round(clamp(0+c.r.roll,0,180)),
-    4: Math.round(clamp(0+c.r.bend,0,130)),
-    5: Math.round(clamp(90-c.l.lift,0,180)),
-    6: Math.round(clamp(180-c.l.roll,0,180)),
-    7: Math.round(clamp(180-c.l.bend,70,180)),
+    0:Math.round(c.head), 1:Math.round(c.waist),
+    2:Math.round(clamp(90+c.r.elev,0,180)),  3:Math.round(clamp(0+c.r.roll,0,180)),  4:Math.round(clamp(0+c.r.bend,0,130)),
+    5:Math.round(clamp(90-c.l.elev,0,180)),  6:Math.round(clamp(180-c.l.roll,0,180)),7:Math.round(clamp(180-c.l.bend,70,180)),
   };
 }
-
 const NAMES={0:"머리",1:"허리",2:"R어깨상하",3:"R어깨벌림",4:"R팔꿈치",5:"L어깨상하",6:"L어깨벌림",7:"L팔꿈치"};
 
-// ---- 로봇 아바타 그리기 ----
-function drawRobot(ctx, W, H, c){
-  ctx.clearRect(0,0,W,H);
-  const cx=W/2, cy=H*0.40, torsoH=90, torsoW=54, L1=52, L2=46;
-  const tilt=(c.waist-90)*Math.PI/180*0.6;
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate(tilt);
-  // 몸통
-  ctx.fillStyle="#3b4252"; ctx.strokeStyle="#8ab4f8"; ctx.lineWidth=2;
-  roundRect(ctx,-torsoW/2,0,torsoW,torsoH,10); ctx.fill(); ctx.stroke();
-  // 머리
-  const headTurn=(c.head-90)/90; // -1..1
-  ctx.save(); ctx.translate(0,-24);
-  ctx.fillStyle="#e8eaed"; ctx.beginPath(); ctx.arc(0,0,22,0,7); ctx.fill();
-  ctx.fillStyle="#1b2430"; ctx.beginPath(); ctx.arc(headTurn*10,2,7,0,7); ctx.fill(); // 눈(회전표시)
-  ctx.restore();
-  // 어깨 좌표 (로봇 정면, 로봇 오른쪽 = 화면 왼쪽)
-  const shY=10, shX=torsoW/2;
-  drawArm(ctx, -shX, shY, c.r, -1); // 오른팔: 화면 왼쪽(바깥=-x)으로 벌림
-  drawArm(ctx, +shX, shY, c.l, +1); // 왼팔: 화면 오른쪽(바깥=+x)으로 벌림
-  ctx.restore();
-}
-function drawArm(ctx, sx, sy, m, outward){
-  // outward: -1 = 화면 왼쪽으로 벌림, +1 = 오른쪽
-  const L1=52, L2=46;
-  const armAng=(m.roll*0.9 + m.lift*0.7)*Math.PI/180;  // 0=아래, 커질수록 위/옆
-  const ex=sx + outward*Math.sin(armAng)*L1;
-  const ey=sy + Math.cos(armAng)*L1;
-  const bendAng=armAng - m.bend*Math.PI/180;           // 굽힐수록 팔뚝 접힘
-  const hx=ex + outward*Math.sin(bendAng)*L2;
-  const hy=ey + Math.cos(bendAng)*L2;
-  ctx.strokeStyle="#e8eaed"; ctx.lineWidth=7; ctx.lineCap="round";
-  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();
-  ctx.fillStyle="#8ab4f8";
-  ctx.beginPath(); ctx.arc(sx,sy,5,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(ex,ey,4,0,7); ctx.fill();
-}
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
-// ---- MediaPipe 연결 ----
+// 정면: 옆벌림(roll) 위주로 팔 스윙
+function drawFront(ctx,W,H,c){
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2, cy=H*0.40, torsoH=90, torsoW=54, L1=48, L2=42;
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate((c.waist-90)*Math.PI/180*0.6);
+  ctx.fillStyle="#3b4252"; ctx.strokeStyle="#8ab4f8"; ctx.lineWidth=2;
+  roundRect(ctx,-torsoW/2,0,torsoW,torsoH,10); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.translate(0,-24);
+  ctx.fillStyle="#e8eaed"; ctx.beginPath(); ctx.arc(0,0,22,0,7); ctx.fill();
+  ctx.fillStyle="#1b2430"; ctx.beginPath(); ctx.arc((c.head-90)/90*10,2,7,0,7); ctx.fill();
+  ctx.restore();
+  const shY=10, shX=torsoW/2;
+  armFront(ctx,-shX,shY,c.r,-1,L1,L2); armFront(ctx,shX,shY,c.l,1,L1,L2);
+  ctx.restore();
+}
+function armFront(ctx,sx,sy,m,out,L1,L2){
+  const ang=(m.roll*0.95 + m.elev*0.35)*Math.PI/180;
+  const ex=sx+out*Math.sin(ang)*L1, ey=sy+Math.cos(ang)*L1;
+  const b=ang-m.bend*Math.PI/180;
+  const hx=ex+out*Math.sin(b)*L2, hy=ey+Math.cos(b)*L2;
+  ctx.strokeStyle="#e8eaed"; ctx.lineWidth=7; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();
+  ctx.fillStyle="#8ab4f8"; ctx.beginPath(); ctx.arc(ex,ey,4,0,7); ctx.fill();
+}
+
+// 옆모습: 앞/위(elev) 위주로 팔 스윙 (앞=오른쪽)
+function drawSide(ctx,W,H,c){
+  ctx.clearRect(0,0,W,H);
+  const cx=W*0.45, cy=H*0.40, torsoH=90, torsoW=30, L1=48, L2=42;
+  ctx.save(); ctx.translate(cx,cy);
+  ctx.fillStyle="#3b4252"; ctx.strokeStyle="#8ab4f8"; ctx.lineWidth=2;
+  roundRect(ctx,-torsoW/2,0,torsoW,torsoH,10); ctx.fill(); ctx.stroke();
+  ctx.fillStyle="#e8eaed"; ctx.beginPath(); ctx.arc(4,-24,22,0,7); ctx.fill(); // 얼굴 앞(오른쪽)
+  const shY=10;
+  // 두 팔을 살짝 겹쳐 표시 (앞으로 들면 오른쪽으로 스윙)
+  armSide(ctx,0,shY,c.r,L1,L2,"#e8eaed");
+  armSide(ctx,0,shY,c.l,L1,L2,"#aeb6c2");
+  ctx.restore();
+}
+function armSide(ctx,sx,sy,m,L1,L2,col){
+  const ang=(m.elev*1.4)*Math.PI/180;        // 0=아래, 커질수록 앞/위
+  const ex=sx+Math.sin(ang)*L1, ey=sy+Math.cos(ang)*L1;
+  const b=ang+m.bend*Math.PI/180;
+  const hx=ex+Math.sin(b)*L2, hy=ey+Math.cos(b)*L2;
+  ctx.strokeStyle=col; ctx.lineWidth=7; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();
+}
+
 const camCanvas=document.getElementById('cam'), camCtx=camCanvas.getContext('2d');
-const robotCanvas=document.getElementById('robot'), robotCtx=robotCanvas.getContext('2d');
+const rF=document.getElementById('robotF').getContext('2d');
+const rS=document.getElementById('robotS').getContext('2d');
 const anglesEl=document.getElementById('angles'), statusEl=document.getElementById('status');
 const video=document.createElement('video');
-
-const POSE_CONN=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];
+const CONN=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];
 
 function onResults(res){
-  camCtx.save();
   camCtx.clearRect(0,0,camCanvas.width,camCanvas.height);
   camCtx.drawImage(res.image,0,0,camCanvas.width,camCanvas.height);
   const lm=res.poseLandmarks;
-  if(!lm){ statusEl.textContent="사람을 인식하지 못했어요. 상반신이 화면에 들어오게 서보세요."; camCtx.restore(); return; }
-  statusEl.textContent="인식 중 ✓ — 팔·머리·허리를 움직여 보세요.";
-  // 스켈레톤
+  if(!lm){ statusEl.textContent="사람을 인식 못함 — 상반신이 화면에 들어오게 서보세요."; return; }
+  statusEl.textContent="인식 중 ✓ — 팔을 앞으로/옆으로 들어보고 두 아바타를 비교해 보세요.";
   camCtx.strokeStyle="#8ab4f8"; camCtx.lineWidth=3;
-  for(const [a,b] of POSE_CONN){ camCtx.beginPath(); camCtx.moveTo(lm[a].x*camCanvas.width,lm[a].y*camCanvas.height); camCtx.lineTo(lm[b].x*camCanvas.width,lm[b].y*camCanvas.height); camCtx.stroke(); }
+  for(const [a,b] of CONN){ camCtx.beginPath(); camCtx.moveTo(lm[a].x*camCanvas.width,lm[a].y*camCanvas.height); camCtx.lineTo(lm[b].x*camCanvas.width,lm[b].y*camCanvas.height); camCtx.stroke(); }
   camCtx.fillStyle="#ffcf66";
   for(const i of [0,11,12,13,14,15,16,23,24]){ camCtx.beginPath(); camCtx.arc(lm[i].x*camCanvas.width,lm[i].y*camCanvas.height,4,0,7); camCtx.fill(); }
-  camCtx.restore();
 
-  const c=compute(lm, camCanvas.width, camCanvas.height);
-  // 부드럽게
+  const c=compute(lm,camCanvas.width,camCanvas.height);
   const t=1-P.SMOOTH;
   sm.head=lerp(sm.head,c.head,t); sm.waist=lerp(sm.waist,c.waist,t);
-  for(const k of ['lift','roll','bend']){ sm.r[k]=lerp(sm.r[k],c.r[k],t); sm.l[k]=lerp(sm.l[k],c.l[k],t); }
-  drawRobot(robotCtx,robotCanvas.width,robotCanvas.height,sm);
+  for(const k of ['roll','elev','bend']){ sm.r[k]=lerp(sm.r[k],c.r[k],t); sm.l[k]=lerp(sm.l[k],c.l[k],t); }
+  drawFront(rF,300,330,sm); drawSide(rS,240,330,sm);
   const sv=toServos(sm);
   anglesEl.innerHTML=Object.keys(NAMES).map(k=>`<div><span>${k} ${NAMES[k]}</span><b>${sv[k]}</b></div>`).join('');
 }
 
 const pose=new Pose({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
-pose.setOptions({modelComplexity:0,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
 pose.onResults(onResults);
 
 if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-  statusEl.textContent="이 방식으론 카메라를 못 써요. 파일을 Firefox로 열거나, localhost 서버로 여세요 (아래 설명 참고).";
+  statusEl.textContent="이 방식으론 카메라를 못 써요. Firefox로 열거나 localhost 서버로 여세요 (아래 설명).";
 } else {
   navigator.mediaDevices.getUserMedia({video:{width:640,height:480}}).then(stream=>{
     video.srcObject=stream; video.play();
     const cam=new Camera(video,{onFrame:async()=>{await pose.send({image:video});},width:640,height:480});
     cam.start();
-  }).catch(err=>{
-    statusEl.textContent="카메라를 열 수 없어요: "+err.message+"  (Firefox로 열거나 localhost 서버로 여세요)";
-  });
+  }).catch(err=>{ statusEl.textContent="카메라를 열 수 없어요: "+err.message+" (Firefox나 localhost로 여세요)"; });
 }
 
-// 슬라이더
 function bind(id,key,fn){const el=document.getElementById(id),v=document.getElementById('v_'+id.split('_')[1]);
   el.addEventListener('input',()=>{P[key]=fn(el.value); v.textContent=(key==='SMOOTH')?P.SMOOTH.toFixed(2):P[key];});}
 bind('s_head','HEAD',Number); bind('s_waist','WAIST',Number);
