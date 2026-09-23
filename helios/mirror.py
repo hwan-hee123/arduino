@@ -34,6 +34,12 @@ SEND_HZ = 15                 # 초당 전송 횟수
 SMOOTH = 0.5                 # 각도 부드럽게 (0=즉시, 1=아주 느림)
 FLIP_LEFT_RIGHT = False      # 좌우가 반대로 움직이면 True 로
 
+# 각 동작의 민감도 (움직임이 부족/과하면 숫자 조정)
+HEAD_SCALE = 160             # 머리 좌우 회전
+WAIST_SCALE = 120            # 허리 좌우 기울기
+SHO_PITCH_SCALE = 110        # 어깨 상하(팔 들기)
+SHO_ROLL_SCALE = 150         # 어깨 옆으로 벌림
+
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
 
@@ -50,30 +56,57 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
+def _arm(S, E, Wr):
+    """한 팔의 (들기, 벌림, 팔꿈치굽힘) 계산."""
+    eps = 1e-6
+    vx, vy = E[0] - S[0], E[1] - S[1]
+    armlen = math.hypot(vx, vy) + eps
+    horiz = abs(vx) / armlen             # 옆으로 벌린 정도 0..1
+    vert_up = (S[1] - E[1]) / armlen     # 위로 든 정도 -1..1 (y는 아래가 +)
+    roll = clamp(horiz * SHO_ROLL_SCALE, 0, 180)
+    lift = clamp((vert_up + 0.2) * SHO_PITCH_SCALE, 0, 90)
+    bend = clamp(180 - angle_at(S, E, Wr), 0, 130)
+    return lift, roll, bend
+
+
 def compute_servo_angles(lm, w, h):
     def pt(i):
         return (lm[i].x * w, lm[i].y * h)
 
-    r_elbow = angle_at(pt(12), pt(14), pt(16))
-    l_elbow = angle_at(pt(11), pt(13), pt(15))
-    r_shldr = angle_at(pt(24), pt(12), pt(14))
-    l_shldr = angle_at(pt(23), pt(11), pt(13))
+    eps = 1e-6
+    Ls, Rs = pt(11), pt(12)              # 어깨 L/R
+    Le, Re = pt(13), pt(14)              # 팔꿈치
+    Lw, Rw = pt(15), pt(16)              # 손목
+    Lh, Rh = pt(23), pt(24)             # 엉덩이
+    nose = pt(0)
+    sho_w = math.hypot(Ls[0] - Rs[0], Ls[1] - Rs[1]) + eps
+    midS = ((Ls[0] + Rs[0]) / 2, (Ls[1] + Rs[1]) / 2)
+    midH = ((Lh[0] + Rh[0]) / 2, (Lh[1] + Rh[1]) / 2)
 
-    r_bend = clamp(180 - r_elbow, 0, 130)
-    l_bend = clamp(180 - l_elbow, 0, 130)
-    r_lift = clamp((r_shldr - 15) * 0.7, 0, 90)
-    l_lift = clamp((l_shldr - 15) * 0.7, 0, 90)
+    # 머리 좌우 회전 (코가 어깨 중심에서 벗어난 정도)
+    head = clamp(90 + (nose[0] - midS[0]) / sho_w * HEAD_SCALE, 0, 179)
+    # 허리 좌우 기울기 (어깨중심이 엉덩이중심에서 벗어난 정도)
+    waist = clamp(90 + (midS[0] - midH[0]) / sho_w * WAIST_SCALE, 0, 180)
 
-    ch2 = clamp(90 + r_lift, 0, 180)     # 오른어깨
-    ch4 = clamp(0 + r_bend, 0, 130)      # 오른팔꿈치
-    ch5 = clamp(90 - l_lift, 0, 180)     # 왼어깨(거울)
-    ch7 = clamp(180 - l_bend, 70, 180)   # 왼팔꿈치(거울)
+    r_lift, r_roll, r_bend = _arm(Rs, Re, Rw)   # 사람 오른팔
+    l_lift, l_roll, l_bend = _arm(Ls, Le, Lw)   # 사람 왼팔
 
     if FLIP_LEFT_RIGHT:
-        ch2, ch5 = clamp(90 + l_lift, 0, 180), clamp(90 - r_lift, 0, 180)
-        ch4, ch7 = clamp(0 + l_bend, 0, 130), clamp(180 - r_bend, 70, 180)
+        r_lift, r_roll, r_bend, l_lift, l_roll, l_bend = \
+            l_lift, l_roll, l_bend, r_lift, r_roll, r_bend
+        head = clamp(180 - head, 0, 179)
+        waist = clamp(180 - waist, 0, 180)
 
-    return {2: int(ch2), 4: int(ch4), 5: int(ch5), 7: int(ch7)}
+    return {
+        0: int(head),                          # 머리
+        1: int(waist),                         # 허리
+        2: int(clamp(90 + r_lift, 0, 180)),    # R 어깨 상하
+        3: int(clamp(0 + r_roll, 0, 180)),     # R 어깨 벌림 (home 0)
+        4: int(clamp(0 + r_bend, 0, 130)),     # R 팔꿈치
+        5: int(clamp(90 - l_lift, 0, 180)),    # L 어깨 상하 (거울)
+        6: int(clamp(180 - l_roll, 0, 180)),   # L 어깨 벌림 (home 180)
+        7: int(clamp(180 - l_bend, 70, 180)),  # L 팔꿈치 (거울)
+    }
 
 
 def find_port():
@@ -135,7 +168,7 @@ def main():
     pose = mp_pose.Pose(model_complexity=0,
                         min_detection_confidence=0.5,
                         min_tracking_confidence=0.5)
-    smoothed = {2: 90, 4: 0, 5: 90, 7: 180}
+    smoothed = {0: 90, 1: 90, 2: 90, 3: 0, 4: 0, 5: 90, 6: 180, 7: 180}
     interval = 1.0 / SEND_HZ
     last = 0.0
 
