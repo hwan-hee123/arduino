@@ -56,15 +56,25 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
-def _arm(S, E, Wr):
-    """한 팔의 (들기, 벌림, 팔꿈치굽힘) 계산."""
+# 상완 2D 투영 길이의 자동보정 최대값 (팔을 옆/아래로 폈을 때가 최대)
+_max_ua = {"r": 1.0, "l": 1.0}
+
+
+def _arm(S, E, Wr, side):
+    """한 팔의 (들기, 벌림, 팔꿈치굽힘) 계산. side='r' 또는 'l'."""
     eps = 1e-6
     vx, vy = E[0] - S[0], E[1] - S[1]
     armlen = math.hypot(vx, vy) + eps
     horiz = abs(vx) / armlen             # 옆으로 벌린 정도 0..1
     vert_up = (S[1] - E[1]) / armlen     # 위로 든 정도 -1..1 (y는 아래가 +)
+
+    # 앞으로 뻗으면 상완이 화면에서 짧아 보임(단축) → 그걸로 "앞으로" 감지
+    _max_ua[side] = max(_max_ua[side] * 0.995, armlen)
+    foreshort = clamp(1 - armlen / (_max_ua[side] + eps), 0, 1)  # 앞으로 뻗을수록 1
+
     roll = clamp(horiz * SHO_ROLL_SCALE, 0, 180)
-    lift = clamp((vert_up + 0.2) * SHO_PITCH_SCALE, 0, 90)
+    # 어깨 상하(pitch): 위로 든 것 + 앞으로 뻗은 것
+    lift = clamp((vert_up * 0.5 + foreshort * 1.2 + 0.2) * SHO_PITCH_SCALE, 0, 90)
     bend = clamp(180 - angle_at(S, E, Wr), 0, 130)
     return lift, roll, bend
 
@@ -88,8 +98,8 @@ def compute_servo_angles(lm, w, h):
     # 허리 좌우 기울기 (정면=94 기준, 좌우 대칭 8~180)
     waist = clamp(94 + (midS[0] - midH[0]) / sho_w * WAIST_SCALE, 8, 180)
 
-    r_lift, r_roll, r_bend = _arm(Rs, Re, Rw)   # 사람 오른팔
-    l_lift, l_roll, l_bend = _arm(Ls, Le, Lw)   # 사람 왼팔
+    r_lift, r_roll, r_bend = _arm(Rs, Re, Rw, "r")   # 사람 오른팔
+    l_lift, l_roll, l_bend = _arm(Ls, Le, Lw, "l")   # 사람 왼팔
 
     if FLIP_LEFT_RIGHT:
         r_lift, r_roll, r_bend, l_lift, l_roll, l_bend = \
