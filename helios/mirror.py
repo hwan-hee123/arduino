@@ -168,7 +168,10 @@ def main():
     pose = mp_pose.Pose(model_complexity=0,
                         min_detection_confidence=0.5,
                         min_tracking_confidence=0.5)
-    smoothed = {0: 90, 1: 90, 2: 90, 3: 0, 4: 0, 5: 90, 6: 180, 7: 180}
+    # 차렷(홈) 자세 — 미러링 꺼져 있을 때 이 값으로 보냄 (helios_mirror.ino 상체와 동일)
+    HOME = {0: 98, 1: 94, 2: 94, 3: 5, 4: 0, 5: 90, 6: 178, 7: 180}
+    smoothed = dict(HOME)
+    mirroring = False          # 시작은 꺼짐(차렷). w 키로 켜기/끄기
     interval = 1.0 / SEND_HZ
     last = 0.0
 
@@ -184,24 +187,34 @@ def main():
         if res.pose_landmarks:
             mp_draw.draw_landmarks(frame, res.pose_landmarks,
                                    mp_pose.POSE_CONNECTIONS)
+
+        # 미러링 ON → 자세 따라감 / OFF → 차렷(HOME) 유지
+        if mirroring and res.pose_landmarks:
             targets = compute_servo_angles(res.pose_landmarks.landmark, w, h)
-            for ch, val in targets.items():
-                smoothed[ch] = smoothed[ch] * SMOOTH + val * (1 - SMOOTH)
+        else:
+            targets = HOME
+        for ch, val in targets.items():
+            smoothed[ch] = smoothed[ch] * SMOOTH + val * (1 - SMOOTH)
 
-            now = time.time()
-            if now - last >= interval:
-                last = now
-                msg = ",".join(f"{ch}:{int(a)}" for ch, a in smoothed.items())
-                try:
-                    ser.write((msg + "\n").encode())
-                except Exception as e:
-                    print("전송 오류:", e)
-                cv2.putText(frame, msg, (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        now = time.time()
+        if now - last >= interval:
+            last = now
+            msg = ",".join(f"{ch}:{int(a)}" for ch, a in smoothed.items())
+            try:
+                ser.write((msg + "\n").encode())
+            except Exception as e:
+                print("전송 오류:", e)
 
-        cv2.imshow("HELIOS mirror (q=quit)", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        label = "MIRRORING ON  (w=stop, q=quit)" if mirroring else "HOME  (press w to start)"
+        color = (0, 255, 0) if mirroring else (0, 180, 255)
+        cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+        cv2.imshow("HELIOS mirror (w=toggle, q=quit)", frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        if key == ord('w'):
+            mirroring = not mirroring
 
     cap.release()
     cv2.destroyAllWindows()
