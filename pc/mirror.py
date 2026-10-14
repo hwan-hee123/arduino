@@ -30,7 +30,7 @@ import serial.tools.list_ports
 # ---- 설정 ----
 PORT = ""                    # 비워두면 자동 탐색. 안 되면 "COM5" 처럼 직접 지정
 BAUD = 115200
-SEND_HZ = 15                 # 초당 전송 횟수
+SEND_HZ = 10                 # 초당 전송 횟수
 SMOOTH = 0.5                 # 각도 부드럽게 (0=즉시, 1=아주 느림)
 FLIP_LEFT_RIGHT = True       # 좌우가 반대로 움직이면 True 로
 
@@ -148,7 +148,7 @@ def main():
         ser.port = port
         ser.baudrate = BAUD
         ser.timeout = 0.1
-        ser.write_timeout = 0.5
+        ser.write_timeout = 0.02   # 전송이 멈추지 않게 짧게 (실패하면 바로 건너뜀)
         # ESP32가 포트 열 때 리셋/멈춤에 빠지지 않도록 DTR/RTS 내림
         ser.dtr = False
         ser.rts = False
@@ -184,6 +184,8 @@ def main():
     mirroring = False          # 시작은 꺼짐(차렷). w 키로 켜기/끄기
     interval = 1.0 / SEND_HZ
     last = 0.0
+    frame_idx = 0
+    last_landmarks = None      # 마지막 인식 결과 재사용 (영상 끊김 방지)
 
     while cap.isOpened():
         ok, frame = cap.read()
@@ -191,16 +193,21 @@ def main():
             break
         frame = cv2.flip(frame, 1)
         h, w = frame.shape[:2]
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        res = pose.process(rgb)
+        frame_idx += 1
 
-        if res.pose_landmarks:
-            mp_draw.draw_landmarks(frame, res.pose_landmarks,
+        # 자세 인식은 2프레임에 1번만 (무거운 처리라 → 영상은 매끄럽게)
+        if frame_idx % 2 == 0:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            res = pose.process(rgb)
+            last_landmarks = res.pose_landmarks
+
+        if last_landmarks:
+            mp_draw.draw_landmarks(frame, last_landmarks,
                                    mp_pose.POSE_CONNECTIONS)
 
         # 미러링 ON → 자세 따라감 / OFF → 차렷(HOME) 유지
-        if mirroring and res.pose_landmarks:
-            targets = compute_servo_angles(res.pose_landmarks.landmark, w, h)
+        if mirroring and last_landmarks:
+            targets = compute_servo_angles(last_landmarks.landmark, w, h)
         else:
             targets = HOME
         for ch, val in targets.items():
