@@ -87,10 +87,10 @@ function compute(lm,vw,vh){
   const Ls=pt(11),Rs=pt(12),Le=pt(13),Re=pt(14),Lw=pt(15),Rw=pt(16),Lh=pt(23),Rh=pt(24),nose=pt(0);
   const sho_w=Math.hypot(Ls.x-Rs.x,Ls.y-Rs.y)+1e-6;
   const midSx=(Ls.x+Rs.x)/2, midHx=(Lh.x+Rh.x)/2;
-  let head=clamp(90+(nose.x-midSx)/sho_w*P.HEAD,0,179);
-  let waist=clamp(90+(midSx-midHx)/sho_w*P.WAIST,0,180);
+  let head=clamp(98+(nose.x-midSx)/sho_w*P.HEAD,17,179);   // 정면=98, 좌우 대칭
+  let waist=clamp(94+(midSx-midHx)/sho_w*P.WAIST,8,180);   // 정면=94, 좌우 대칭
   let r=armMetrics(Rs,Re,Rw), l=armMetrics(Ls,Le,Lw);
-  if(P.FLIP){ const t=r; r=l; l=t; head=clamp(180-head,0,179); waist=clamp(180-waist,0,180); }
+  if(P.FLIP){ const t=r; r=l; l=t; head=clamp(2*98-head,17,179); waist=clamp(2*94-waist,8,180); }
   return {head,waist,r,l};
 }
 
@@ -109,12 +109,12 @@ function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+
 function drawFront(ctx,W,H,c){
   ctx.clearRect(0,0,W,H);
   const cx=W/2, cy=H*0.40, torsoH=90, torsoW=54, L1=48, L2=42;
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate((c.waist-90)*Math.PI/180*0.6);
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate((c.waist-94)*Math.PI/180*0.6);
   ctx.fillStyle="#3b4252"; ctx.strokeStyle="#8ab4f8"; ctx.lineWidth=2;
   roundRect(ctx,-torsoW/2,0,torsoW,torsoH,10); ctx.fill(); ctx.stroke();
   ctx.save(); ctx.translate(0,-24);
   ctx.fillStyle="#e8eaed"; ctx.beginPath(); ctx.arc(0,0,22,0,7); ctx.fill();
-  ctx.fillStyle="#1b2430"; ctx.beginPath(); ctx.arc((c.head-90)/90*10,2,7,0,7); ctx.fill();
+  ctx.fillStyle="#1b2430"; ctx.beginPath(); ctx.arc((c.head-98)/81*10,2,7,0,7); ctx.fill();
   ctx.restore();
   const shY=10, shX=torsoW/2;
   armFront(ctx,-shX,shY,c.r,-1,L1,L2); armFront(ctx,shX,shY,c.l,1,L1,L2);

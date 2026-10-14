@@ -32,7 +32,7 @@
 
 // 채널별 안전 가동 범위 (측정값)
 const int limitMin[NUM_SERVOS] = {
-  0, 0, 0, 0, 0, 0, 0, 70,
+  17, 8, 0, 0, 0, 0, 0, 70,   // ch0/ch1: 홈(98/94) 기준 좌우 대칭 하한
   0, 0, 100, 40, 0, 100, 0, 0
 };
 const int limitMax[NUM_SERVOS] = {

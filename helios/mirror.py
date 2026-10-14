@@ -83,10 +83,10 @@ def compute_servo_angles(lm, w, h):
     midS = ((Ls[0] + Rs[0]) / 2, (Ls[1] + Rs[1]) / 2)
     midH = ((Lh[0] + Rh[0]) / 2, (Lh[1] + Rh[1]) / 2)
 
-    # 머리 좌우 회전 (코가 어깨 중심에서 벗어난 정도)
-    head = clamp(90 + (nose[0] - midS[0]) / sho_w * HEAD_SCALE, 0, 179)
-    # 허리 좌우 기울기 (어깨중심이 엉덩이중심에서 벗어난 정도)
-    waist = clamp(90 + (midS[0] - midH[0]) / sho_w * WAIST_SCALE, 0, 180)
+    # 머리 좌우 회전 (정면=98 기준, 좌우 대칭 17~179)
+    head = clamp(98 + (nose[0] - midS[0]) / sho_w * HEAD_SCALE, 17, 179)
+    # 허리 좌우 기울기 (정면=94 기준, 좌우 대칭 8~180)
+    waist = clamp(94 + (midS[0] - midH[0]) / sho_w * WAIST_SCALE, 8, 180)
 
     r_lift, r_roll, r_bend = _arm(Rs, Re, Rw)   # 사람 오른팔
     l_lift, l_roll, l_bend = _arm(Ls, Le, Lw)   # 사람 왼팔
@@ -94,8 +94,8 @@ def compute_servo_angles(lm, w, h):
     if FLIP_LEFT_RIGHT:
         r_lift, r_roll, r_bend, l_lift, l_roll, l_bend = \
             l_lift, l_roll, l_bend, r_lift, r_roll, r_bend
-        head = clamp(180 - head, 0, 179)
-        waist = clamp(180 - waist, 0, 180)
+        head = clamp(2 * 98 - head, 17, 179)
+        waist = clamp(2 * 94 - waist, 8, 180)
 
     return {
         0: int(head),                          # 머리
