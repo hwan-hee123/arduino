@@ -36,8 +36,8 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 // 홈(조립 기준) 위치 [채널 0~15]
 // 좌우 서보가 거울처럼 장착돼서, 왼쪽은 (180 - 오른쪽각도)로 두어야 대칭이 됨.
 const int home[NUM_SERVOS] = {
-  90,  // 0  머리(목)
-  90,  // 1  허리
+  98,  // 0  머리(목) (정면 보정)
+  94,  // 1  허리 (정면 보정)
   90,  // 2  R 어깨 상하
   0,   // 3  R 어깨 벌림
   0,   // 4  R 팔꿈치
