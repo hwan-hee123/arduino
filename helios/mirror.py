@@ -32,7 +32,7 @@ PORT = ""                    # 비워두면 자동 탐색. 안 되면 "COM5" 처
 BAUD = 115200
 SEND_HZ = 15                 # 초당 전송 횟수
 SMOOTH = 0.5                 # 각도 부드럽게 (0=즉시, 1=아주 느림)
-FLIP_LEFT_RIGHT = False      # 좌우가 반대로 움직이면 True 로
+FLIP_LEFT_RIGHT = True       # 좌우가 반대로 움직이면 True 로
 
 # 각 동작의 민감도 (움직임이 부족/과하면 숫자 조정)
 HEAD_SCALE = 160             # 머리 좌우 회전
