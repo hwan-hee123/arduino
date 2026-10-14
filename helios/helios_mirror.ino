@@ -42,8 +42,8 @@ const int limitMax[NUM_SERVOS] = {
 
 // 차렷(중립) 자세 — 시작 시 이 자세로
 const int neutral[NUM_SERVOS] = {
-  98, 94, 90, 0, 0, 90, 180, 180,   // ch0 머리=98, ch1 허리=94 (정면 보정)
-  0, 0, 180, 90, 90, 180, 0, 90
+  98, 94, 94, 5, 0, 90, 178, 180,   // 0머리98 1허리94 2어깨94 3벌림5 6벌림178 (보정)
+  0, 0, 170, 100, 80, 170, 0, 85    // 10종아리170 11발목100 12고관절80 13허벅지170 15발목85
 };
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
