@@ -181,7 +181,7 @@ def main():
     # 차렷(홈) 자세 — 미러링 꺼져 있을 때 이 값으로 보냄 (helios_mirror.ino 상체와 동일)
     HOME = {0: 98, 1: 94, 2: 94, 3: 5, 4: 0, 5: 90, 6: 178, 7: 180}
     smoothed = dict(HOME)
-    mirroring = False          # 시작은 꺼짐(차렷). w 키로 켜기/끄기
+    mirroring = True           # 시작부터 따라하기 ON (w 키로 잠깐 멈췄다 켤 수 있음)
     interval = 1.0 / SEND_HZ
     last = 0.0
 
