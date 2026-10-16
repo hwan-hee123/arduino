@@ -149,8 +149,8 @@ def main():
         ser.baudrate = BAUD
         ser.timeout = 0.1
         ser.write_timeout = 0.5
-        # ESP32가 포트 열 때 리셋/멈춤에 빠지지 않도록 DTR/RTS 내림
-        ser.dtr = False
+        # ESP32-S3 내장 USB CDC는 DTR이 켜져야 데이터가 흐름 (시리얼 모니터와 동일)
+        ser.dtr = True
         ser.rts = False
         ser.open()
     except Exception as e:
