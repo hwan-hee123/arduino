@@ -148,7 +148,7 @@ def main():
         ser.port = port
         ser.baudrate = BAUD
         ser.timeout = 0.1
-        ser.write_timeout = 0.02   # 전송이 멈추지 않게 짧게 (실패하면 바로 건너뜀)
+        ser.write_timeout = 0.4    # 전송 제한시간 (너무 짧으면 멀쩡해도 timeout 뜸)
         # ESP32가 포트 열 때 리셋/멈춤에 빠지지 않도록 DTR/RTS 내림
         ser.dtr = False
         ser.rts = False
@@ -186,6 +186,7 @@ def main():
     last = 0.0
     frame_idx = 0
     last_landmarks = None      # 마지막 인식 결과 재사용 (영상 끊김 방지)
+    err_last = 0.0             # 전송오류 메시지 도배 방지용
 
     while cap.isOpened():
         ok, frame = cap.read()
@@ -220,7 +221,9 @@ def main():
             try:
                 ser.write((msg + "\n").encode())
             except Exception as e:
-                print("전송 오류:", e)
+                if now - err_last > 1.0:      # 1초에 한 번만 출력
+                    err_last = now
+                    print("전송 오류:", e, "(로봇 연결/전원 확인)")
 
         label = "MIRRORING ON  (w=stop, q=quit)" if mirroring else "HOME  (press w to start)"
         color = (0, 255, 0) if mirroring else (0, 180, 255)
