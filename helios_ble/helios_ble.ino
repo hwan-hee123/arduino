@@ -111,7 +111,7 @@ const int limitMax[NUM_SERVOS] = {
 #define STEP_LIFT     10   // 드는 다리도 최대 30도 굽힘
 #define STEP_STRIDE    6   // 허벅지 기준 9 +/- 6도: 음수 명령 방지
 #define STEP_LEAN      4
-#define HIP_BIAS       5   // R=5, L=75를 중심으로 양방향 여유 확보
+#define HIP_BIAS       8   // 안쪽으로 모을 때도 R=2, L=78로 관절 범위 확보
 #define LEAN_DIR     (+1)
 #define ANKLE_P_DIR  (+1)
 #define TURN_DIR     (+1)
@@ -221,14 +221,15 @@ void crouch() {
 // ---------- 앞/뒤 한 걸음 (dir=+1 앞, -1 뒤 / swingR=오른다리) ----------
 void stepLeg(bool swingR, int dir) {
   int st = swingR ? -1 : +1;                 // 지지발 쪽으로 기울임
+  bool supportR = !swingR;
   legLean(st * STEP_LEAN);  if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;   // 1) 무게 지지발로
   legKnee(swingR, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 2) 발 들기
-  legThigh(swingR, CROUCH_THIGH + dir * STEP_STRIDE);    // 3) 허벅지 방향대로
+  legThigh(swingR, CROUCH_THIGH + dir * STEP_STRIDE);    // 3) 든 발을 진행 방향으로
+  legThigh(supportR, CROUCH_THIGH - dir * STEP_STRIDE / 2); // 지지 다리로 몸을 조금 밀기
   if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
   legKnee(swingR, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 4) 발 내리기
-  legLean(-st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;                   // 5) 착지한 발 쪽으로 무게 이동
-  legThigh(true, CROUCH_THIGH); legThigh(false, CROUCH_THIGH);                      // 6) 허벅지 복귀(몸 이동)
-  if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
+  legLean(-st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 5) 착지한 발 쪽으로 무게 이동
+  // 보폭은 유지한다. 뒤에 남은 발은 다음 stepLeg에서 들고 앞으로 옮긴다.
 }
 void walk(int dir, int steps) {   // dir: +1 앞 / -1 뒤
   beginGait();
@@ -250,10 +251,13 @@ void strafe(bool toRight, int steps) {
     legKnee(toRight, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 2) 진행발 들기
     legSplay(toRight, STEP_STRIDE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;  // 3) 진행발 옆으로
     legKnee(toRight, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;   // 4) 내리기
-    legLean(-st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 5)) return;        // 5) 무게 진행발로
-    legKnee(!toRight, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 6) 반대발 들기
-    legSplay(toRight, 0); legSplay(!toRight, 0); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 7) 모으기
-    legKnee(!toRight, CROUCH_KNEE); legLean(0); if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
+    legLean(-st * STEP_LEAN); legSplay(toRight, STEP_STRIDE); // 벌린 발을 유지하며 무게 이동
+    if (!gaitMove(GAIT_STEP_DELAY_MS * 5)) return;
+    legKnee(!toRight, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 6) 뒤따르는 발 들기
+    legSplay(toRight, 0); legSplay(!toRight, -STEP_STRIDE); // 7) 지지 다리 위로 몸을 옮기며 든 발 모으기
+    if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+    legKnee(!toRight, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return; // 8) 착지
+    legLean(0); if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
   }
   finishGait();
 }
