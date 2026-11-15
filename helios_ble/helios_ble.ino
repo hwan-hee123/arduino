@@ -104,7 +104,8 @@ const int limitMax[NUM_SERVOS] = {
 };
 
 // 얕은 보행 시험값: 한 발 지지 능력과 관절 방향은 실물 검증 필요
-#define GAIT_STEP_DELAY_MS  60
+#define GAIT_STEP_DELAY_MS  40   // 보행 각 단계의 20ms 프레임 배수
+#define GAIT_TRANSITION_MS 400  // 차렷↔얕은 굽힘 전환
 #define CROUCH_KNEE   20   // 지지 다리 굽힘
 #define CROUCH_THIGH   9
 #define CROUCH_ANKLE   0   // 발목 회전축 확인 전 추가 pitch 보정 없음
@@ -179,7 +180,7 @@ bool gaitMove(int ms) {
 }
 void finishGait() {
   standNeutral();
-  gaitMove(800);
+  gaitMove(GAIT_TRANSITION_MS);
   gaitPlanning=false;
 }
 
@@ -233,7 +234,7 @@ void stepLeg(bool swingR, int dir) {
 }
 void walk(int dir, int steps) {   // dir: +1 앞 / -1 뒤
   beginGait();
-  crouch(); if (!gaitMove(800)) return;
+  crouch(); if (!gaitMove(GAIT_TRANSITION_MS)) return;
   for (int i = 0; i < steps && walking; i++) {
     stepLeg(true, dir);  if (!walking) return;
     stepLeg(false, dir); if (!walking) return;
@@ -244,7 +245,7 @@ void walk(int dir, int steps) {   // dir: +1 앞 / -1 뒤
 // ---------- 옆으로 걷기 (toRight=true 오른쪽) ----------
 void strafe(bool toRight, int steps) {
   beginGait();
-  crouch(); if (!gaitMove(800)) return;
+  crouch(); if (!gaitMove(GAIT_TRANSITION_MS)) return;
   for (int i = 0; i < steps && walking; i++) {
     int st = toRight ? -1 : +1;                // 진행 반대쪽(지지발)으로 기울임
     legLean(st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;   // 1) 무게 지지발로
@@ -266,7 +267,7 @@ void strafe(bool toRight, int steps) {
 // ※ 전용 회전(yaw) 관절이 없어서, 발 벌림+허리로 "비틀며 끌기" 방식 (약하게 돎)
 void turnStep(int steps) {
   beginGait();
-  crouch(); if (!gaitMove(800)) return;
+  crouch(); if (!gaitMove(GAIT_TRANSITION_MS)) return;
   for (int i = 0; i < steps && walking; i++) {
     // 지지발(오른)로 무게 → 왼발 들어 벌렸다 모으며 허리 비틀기
     legLean(-STEP_LEAN * TURN_DIR); if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;
