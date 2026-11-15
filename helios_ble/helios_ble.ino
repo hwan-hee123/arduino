@@ -299,8 +299,8 @@ void punchCombo() {
 }
 
 // ---------- 무릎 구부리기 (스쿼트) ----------
-#define SQUAT_KNEE   65   // 무릎 굽힘 정도 (양 종아리, 최대 80)
-#define SQUAT_THIGH  30   // 허벅지 굽힘(균형용, 엉덩이 낮추기)
+#define SQUAT_KNEE   30   // 얕은 스쿼트: 중립에서 무릎 30도 굽힘
+#define SQUAT_THIGH  14   // 기존 무릎/허벅지 비율 유지 (30 * 30 / 65 반올림)
 #define SQUAT_STEPS   4   // 부드럽게 나눌 단계 수
 
 // 양 다리를 amt(0~SQUAT_KNEE)만큼 굽힌 자세로
