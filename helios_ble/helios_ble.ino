@@ -17,8 +17,8 @@
  *    3) RX 특성(...0002...)의 화살표(⬆ Write) 누르기
  *    4) 데이터 타입을 "Text"로 바꾸고 아래 글자 입력 → SEND
  *         n = 중립(차렷)
- *         w = 앞으로 걷기
- *         b = 뒤로 걷기
+ *         w = 앞으로 걷기 (좌우 한 번씩 시험)
+ *         b = 뒤로 걷기 (좌우 한 번씩 시험)
  *         d = 옆으로 걷기(오른쪽)
  *         r = 제자리 회전
  *         a = 손 흔들기
@@ -103,18 +103,18 @@ const int limitMax[NUM_SERVOS] = {
   90, 80, 180, 180, 90, 180, 80, 140
 };
 
-// 걸음걸이 파라미터 (테스트하며 조정) — 크라우치(무릎 굽힌) 걷기
-#define GAIT_STEP_DELAY_MS  20   // 프레임 간 지연(작을수록 빠름)
-#define CROUCH_KNEE   35   // 크라우치: 무릎 굽힘 (걷는 기본 앉은 자세) ★핵심
-#define CROUCH_THIGH  18   // 크라우치: 허벅지 굽힘 (균형)
-#define CROUCH_ANKLE  18   // 크라우치: 발목 보정 (발 평평하게)
-#define STEP_LIFT     25   // 스윙 발 추가로 들기 (무릎)
-#define STEP_STRIDE   25   // 보폭 (허벅지 앞뒤)
-#define STEP_LEAN     22   // 무게 좌우 이동 (고관절)
-// ▼ 방향 보정 — 테스트해서 반대로 가면 부호(+1/-1)를 뒤집으세요
-#define LEAN_DIR     (+1)  // 무게이동 방향
-#define ANKLE_P_DIR  (+1)  // 발목 pitch 방향
-#define TURN_DIR     (+1)  // 회전 방향
+// 얕은 보행 시험값: 한 발 지지 능력과 관절 방향은 실물 검증 필요
+#define GAIT_STEP_DELAY_MS  60
+#define CROUCH_KNEE   20   // 지지 다리 굽힘
+#define CROUCH_THIGH   9
+#define CROUCH_ANKLE   0   // 발목 회전축 확인 전 추가 pitch 보정 없음
+#define STEP_LIFT     10   // 드는 다리도 최대 30도 굽힘
+#define STEP_STRIDE    6   // 허벅지 기준 9 +/- 6도: 음수 명령 방지
+#define STEP_LEAN      4
+#define HIP_BIAS       5   // R=5, L=75를 중심으로 양방향 여유 확보
+#define LEAN_DIR     (+1)
+#define ANKLE_P_DIR  (+1)
+#define TURN_DIR     (+1)
 
 // BLE UUID (Nordic UART Service)
 #define NUS_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -127,6 +127,9 @@ const int limitMax[NUM_SERVOS] = {
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 bool walking = false;
+bool gaitPlanning = false;
+int commanded[NUM_SERVOS];
+int gaitTarget[NUM_SERVOS];
 
 volatile char pendingCmd = 0;   // BLE 콜백이 여기에 명령을 넣음
 bool deviceConnected = false;
@@ -137,6 +140,8 @@ void writeAngle(uint8_t ch, int angle) {
   // 채널별 안전 범위로 제한
   if (angle < limitMin[ch]) angle = limitMin[ch];
   if (angle > limitMax[ch]) angle = limitMax[ch];
+  if (gaitPlanning) { gaitTarget[ch] = angle; return; }
+  commanded[ch] = angle;
   int pulse = map(angle, 0, 180, SERVO_PULSE_MIN, SERVO_PULSE_MAX);
   pwm.setPWM(ch, 0, pulse);
 }
@@ -147,6 +152,35 @@ void moveJoint(uint8_t ch, int offset) {
 // ---------- 자세 ----------
 void standNeutral() {
   for (uint8_t ch = 0; ch < NUM_SERVOS; ch++) writeAngle(ch, neutral[ch]);
+}
+
+// 보행에서만 목표를 모아 20ms 간격으로 보간한다. 실제 위치 피드백은 아님.
+void beginGait() {
+  for (int ch=0; ch<NUM_SERVOS; ++ch) gaitTarget[ch]=commanded[ch];
+  gaitPlanning=true;
+}
+bool gaitMove(int ms) {
+  int start[NUM_SERVOS];
+  for (int ch=0; ch<NUM_SERVOS; ++ch) start[ch]=commanded[ch];
+  int frames=max(1, ms/20);
+  for (int i=1; i<=frames; ++i) {
+    if (!walking || pendingCmd=='s' || pendingCmd=='n') {
+      walking=false;
+      gaitPlanning=false;
+      return false; // 현재 명령 위치 유지. 전원 차단은 아님.
+    }
+    gaitPlanning=false;
+    for (int ch=0; ch<NUM_SERVOS; ++ch)
+      writeAngle(ch, start[ch]+(gaitTarget[ch]-start[ch])*i/frames);
+    gaitPlanning=true;
+    delay(20);
+  }
+  return true;
+}
+void finishGait() {
+  standNeutral();
+  gaitMove(800);
+  gaitPlanning=false;
 }
 
 // ---------- 다리 관절 제어 (현재 neutral 기준, 좌우 대칭) ----------
@@ -167,17 +201,18 @@ void legAnkle(bool R, int p) {
 }
 // 무게 좌우 이동(고관절). amt>0 = 오른쪽으로 기울임 (양쪽 같은 방향=몸 기울임)
 void legLean(int amt) {
-  writeAngle(CH_R_HIP, neutral[CH_R_HIP] + amt * LEAN_DIR);
-  writeAngle(CH_L_HIP, neutral[CH_L_HIP] + amt * LEAN_DIR);
+  writeAngle(CH_R_HIP, neutral[CH_R_HIP] + HIP_BIAS + amt * LEAN_DIR);
+  writeAngle(CH_L_HIP, neutral[CH_L_HIP] - HIP_BIAS + amt * LEAN_DIR);
 }
 // 한 다리 옆으로 벌리기(고관절). out>0 = 바깥쪽 (옆걸음용)
 void legSplay(bool R, int out) {
   int ch = R ? CH_R_HIP : CH_L_HIP;
-  writeAngle(ch, neutral[ch] + (R ? +out : -out));
+  writeAngle(ch, neutral[ch] + (R ? +(HIP_BIAS+out) : -(HIP_BIAS+out)));
 }
 
 // ---------- 크라우치(앉은) 기본 자세 ----------
 void crouch() {
+  legLean(0);
   legKnee(true, CROUCH_KNEE);  legKnee(false, CROUCH_KNEE);
   legThigh(true, CROUCH_THIGH); legThigh(false, CROUCH_THIGH);
   legAnkle(true, CROUCH_ANKLE); legAnkle(false, CROUCH_ANKLE);
@@ -186,59 +221,62 @@ void crouch() {
 // ---------- 앞/뒤 한 걸음 (dir=+1 앞, -1 뒤 / swingR=오른다리) ----------
 void stepLeg(bool swingR, int dir) {
   int st = swingR ? -1 : +1;                 // 지지발 쪽으로 기울임
-  legLean(st * STEP_LEAN);  delay(GAIT_STEP_DELAY_MS * 6);   // 1) 무게 지지발로
-  legKnee(swingR, CROUCH_KNEE + STEP_LIFT); delay(GAIT_STEP_DELAY_MS * 4); // 2) 발 들기
-  legThigh(swingR, CROUCH_THIGH * 0 + dir * STEP_STRIDE);    // 3) 허벅지 방향대로
-  delay(GAIT_STEP_DELAY_MS * 4);
-  legKnee(swingR, CROUCH_KNEE); delay(GAIT_STEP_DELAY_MS * 4); // 4) 발 내리기
-  legLean(0); delay(GAIT_STEP_DELAY_MS * 4);                   // 5) 무게 중앙
-  legThigh(true, 0); legThigh(false, 0);                      // 6) 허벅지 복귀(몸 이동)
-  delay(GAIT_STEP_DELAY_MS * 3);
+  legLean(st * STEP_LEAN);  if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;   // 1) 무게 지지발로
+  legKnee(swingR, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 2) 발 들기
+  legThigh(swingR, CROUCH_THIGH + dir * STEP_STRIDE);    // 3) 허벅지 방향대로
+  if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+  legKnee(swingR, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 4) 발 내리기
+  legLean(-st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;                   // 5) 착지한 발 쪽으로 무게 이동
+  legThigh(true, CROUCH_THIGH); legThigh(false, CROUCH_THIGH);                      // 6) 허벅지 복귀(몸 이동)
+  if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
 }
 void walk(int dir, int steps) {   // dir: +1 앞 / -1 뒤
-  crouch(); delay(350);
+  beginGait();
+  crouch(); if (!gaitMove(800)) return;
   for (int i = 0; i < steps && walking; i++) {
-    stepLeg(true, dir);  if (!walking) break;
-    stepLeg(false, dir);
+    stepLeg(true, dir);  if (!walking) return;
+    stepLeg(false, dir); if (!walking) return;
   }
-  standNeutral();
+  finishGait();
 }
 
 // ---------- 옆으로 걷기 (toRight=true 오른쪽) ----------
 void strafe(bool toRight, int steps) {
-  crouch(); delay(350);
+  beginGait();
+  crouch(); if (!gaitMove(800)) return;
   for (int i = 0; i < steps && walking; i++) {
     int st = toRight ? -1 : +1;                // 진행 반대쪽(지지발)으로 기울임
-    legLean(st * STEP_LEAN); delay(GAIT_STEP_DELAY_MS * 6);   // 1) 무게 지지발로
-    legKnee(toRight, CROUCH_KNEE + STEP_LIFT); delay(GAIT_STEP_DELAY_MS * 4); // 2) 진행발 들기
-    legSplay(toRight, STEP_STRIDE); delay(GAIT_STEP_DELAY_MS * 4);  // 3) 진행발 옆으로
-    legKnee(toRight, CROUCH_KNEE); delay(GAIT_STEP_DELAY_MS * 4);   // 4) 내리기
-    legLean(-st * STEP_LEAN); delay(GAIT_STEP_DELAY_MS * 5);        // 5) 무게 진행발로
-    legKnee(!toRight, CROUCH_KNEE + STEP_LIFT); delay(GAIT_STEP_DELAY_MS * 4); // 6) 반대발 들기
-    legSplay(toRight, 0); legSplay(!toRight, 0); delay(GAIT_STEP_DELAY_MS * 4); // 7) 모으기
-    legKnee(!toRight, CROUCH_KNEE); legLean(0); delay(GAIT_STEP_DELAY_MS * 3);
+    legLean(st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;   // 1) 무게 지지발로
+    legKnee(toRight, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 2) 진행발 들기
+    legSplay(toRight, STEP_STRIDE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;  // 3) 진행발 옆으로
+    legKnee(toRight, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;   // 4) 내리기
+    legLean(-st * STEP_LEAN); if (!gaitMove(GAIT_STEP_DELAY_MS * 5)) return;        // 5) 무게 진행발로
+    legKnee(!toRight, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 6) 반대발 들기
+    legSplay(toRight, 0); legSplay(!toRight, 0); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return; // 7) 모으기
+    legKnee(!toRight, CROUCH_KNEE); legLean(0); if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
   }
-  standNeutral();
+  finishGait();
 }
 
 // ---------- 제자리 회전 (고관절 벌림 + 허리 비틀기 조합) ----------
 // ※ 전용 회전(yaw) 관절이 없어서, 발 벌림+허리로 "비틀며 끌기" 방식 (약하게 돎)
 void turnStep(int steps) {
-  crouch(); delay(350);
+  beginGait();
+  crouch(); if (!gaitMove(800)) return;
   for (int i = 0; i < steps && walking; i++) {
     // 지지발(오른)로 무게 → 왼발 들어 벌렸다 모으며 허리 비틀기
-    legLean(-STEP_LEAN * TURN_DIR); delay(GAIT_STEP_DELAY_MS * 6);
-    legKnee(false, CROUCH_KNEE + STEP_LIFT); delay(GAIT_STEP_DELAY_MS * 4);
-    writeAngle(CH_WAIST, neutral[CH_WAIST] + 25 * TURN_DIR);   // 허리 비틀기
-    legSplay(false, STEP_STRIDE); delay(GAIT_STEP_DELAY_MS * 4);
-    legKnee(false, CROUCH_KNEE); delay(GAIT_STEP_DELAY_MS * 4);
-    legLean(STEP_LEAN * TURN_DIR); delay(GAIT_STEP_DELAY_MS * 5);
-    legKnee(true, CROUCH_KNEE + STEP_LIFT); delay(GAIT_STEP_DELAY_MS * 4);
+    legLean(-STEP_LEAN * TURN_DIR); if (!gaitMove(GAIT_STEP_DELAY_MS * 6)) return;
+    legKnee(false, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+    writeAngle(CH_WAIST, neutral[CH_WAIST] + 8 * TURN_DIR);   // 허리 비틀기
+    legSplay(false, STEP_STRIDE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+    legKnee(false, CROUCH_KNEE); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+    legLean(STEP_LEAN * TURN_DIR); if (!gaitMove(GAIT_STEP_DELAY_MS * 5)) return;
+    legKnee(true, CROUCH_KNEE + STEP_LIFT); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
     writeAngle(CH_WAIST, neutral[CH_WAIST]);                   // 허리 복귀(몸 끌림)
-    legSplay(false, 0); delay(GAIT_STEP_DELAY_MS * 4);
-    legKnee(true, CROUCH_KNEE); legLean(0); delay(GAIT_STEP_DELAY_MS * 3);
+    legSplay(false, 0); if (!gaitMove(GAIT_STEP_DELAY_MS * 4)) return;
+    legKnee(true, CROUCH_KNEE); legLean(0); if (!gaitMove(GAIT_STEP_DELAY_MS * 3)) return;
   }
-  standNeutral();
+  finishGait();
 }
 
 // ---------- 손 흔들기 ----------
@@ -357,10 +395,10 @@ class RxCallbacks : public BLECharacteristicCallbacks {
 void handleCommand(char cmd) {
   switch (cmd) {
     case 'n': walking = false; standNeutral();       notifyPhone("neutral\n"); break;
-    case 'w': walking = true;  notifyPhone("forward\n");  walk(+1, 4); walking = false; break;
-    case 'b': walking = true;  notifyPhone("backward\n"); walk(-1, 4); walking = false; break;
-    case 'd': walking = true;  notifyPhone("strafe\n");   strafe(true, 4); walking = false; break;
-    case 'r': walking = true;  notifyPhone("turn\n");     turnStep(4); walking = false; break;
+    case 'w': walking = true;  notifyPhone("forward\n");  walk(+1, 1); walking = false; break;
+    case 'b': walking = true;  notifyPhone("backward\n"); walk(-1, 1); walking = false; break;
+    case 'd': walking = true;  notifyPhone("strafe\n");   strafe(true, 1); walking = false; break;
+    case 'r': walking = true;  notifyPhone("turn\n");     turnStep(1); walking = false; break;
     case 'a': notifyPhone("wave\n"); waveHand();      break;
     case 'p': notifyPhone("punch\n"); punchCombo();   break;
     case 'k': notifyPhone("squat\n"); squat();        break;
